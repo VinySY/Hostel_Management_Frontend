@@ -18,8 +18,24 @@ import {
   mockUsers,
 } from '../mock/data';
 
-// Base API configuration referencing Spring Boot REST endpoint
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api';
+/**
+ * Dynamically resolves the Spring Boot REST API base URL:
+ * - Uses window.location.hostname with backend port 8080 by default (ideal for LAN/localhost dev).
+ * - If VITE_API_BASE_URL is explicitly set and non-empty, uses that.
+ */
+export const getApiBaseUrl = (): string => {
+  const envUrl = import.meta.env.VITE_API_BASE_URL;
+  if (envUrl && typeof envUrl === 'string' && envUrl.trim() !== '') {
+    return envUrl.trim();
+  }
+  if (typeof window !== 'undefined' && window.location && window.location.hostname) {
+    const protocol = window.location.protocol || 'http:';
+    return `${protocol}//${window.location.hostname}:8080/api`;
+  }
+  return 'http://localhost:8080/api';
+};
+
+const API_BASE_URL = getApiBaseUrl();
 
 /**
  * Standard HTTP helper ready for Spring Boot JWT Authentication.

@@ -1,8 +1,43 @@
-node_modules/
-build/
-dist/
-coverage/
+# Backend
+backend/target/
+backend/uploads/
+backend/src/main/resources/application-local.properties
+backend/.mvn/
+backend/mvnw
+backend/mvnw.cmd
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+frontend/.env
+frontend/.env.local
+frontend/.env.production.local
+
+# IDEs
+.idea/
+.vscode/
+*.iml
+*.swp
+*.swo
+*~
+
+# OS
 .DS_Store
+Thumbs.db
+desktop.ini
+
+# Logs
 *.log
-.env*
-!.env.example
+logs/
+
+# Sensitive files
+application-prod.properties
+*.pem
+*.key
+*.p12
+*.jks
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
