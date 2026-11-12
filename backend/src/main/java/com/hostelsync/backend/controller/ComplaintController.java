@@ -3,6 +3,9 @@ package com.hostelsync.backend.controller;
 import com.hostelsync.backend.dto.ComplaintCreateRequest;
 import com.hostelsync.backend.dto.ComplaintResponse;
 import com.hostelsync.backend.dto.ComplaintStatusUpdateRequest;
+import com.hostelsync.backend.dto.ComplaintReopenRequest;
+import com.hostelsync.backend.dto.ComplaintAssignmentRequest;
+import com.hostelsync.backend.dto.ComplaintAssignmentResponse;
 import com.hostelsync.backend.entity.Student;
 import com.hostelsync.backend.entity.User;
 import com.hostelsync.backend.entity.UserRole;
@@ -10,6 +13,7 @@ import com.hostelsync.backend.exception.BadRequestException;
 import com.hostelsync.backend.repository.UserRepository;
 import com.hostelsync.backend.service.ComplaintService;
 import com.hostelsync.backend.service.StudentService;
+import com.hostelsync.backend.service.ComplaintAssignmentService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -27,6 +31,9 @@ import java.util.List;
  * GET    /api/complaints/my          — student: own complaints (uses JWT identity)
  * GET    /api/complaints/{id}        — authenticated: single complaint (IDOR checked in service)
  * PATCH  /api/complaints/{id}/status — warden: update status/notes/priority
+ * POST   /api/complaints/{id}/reopen — student: reopen resolved/rejected complaint
+ * POST   /api/complaints/{id}/assign — warden: assign complaint to warden
+ * GET    /api/complaints/{id}/history — warden: view assignment history
  */
 @RestController
 @RequestMapping("/api/complaints")
@@ -36,15 +43,18 @@ public class ComplaintController {
     private final StudentService studentService;
     private final UserRepository userRepository;
     private final ObjectMapper objectMapper;
+    private final ComplaintAssignmentService complaintAssignmentService;
 
     public ComplaintController(ComplaintService complaintService,
                                StudentService studentService,
                                UserRepository userRepository,
-                               ObjectMapper objectMapper) {
+                               ObjectMapper objectMapper,
+                               ComplaintAssignmentService complaintAssignmentService) {
         this.complaintService = complaintService;
         this.studentService = studentService;
         this.userRepository = userRepository;
         this.objectMapper = objectMapper;
+        this.complaintAssignmentService = complaintAssignmentService;
     }
 
     // ─── Create complaint (student only) ─────────────────────────────────────
@@ -93,7 +103,7 @@ public class ComplaintController {
 
         User caller = findUser(principal.getUsername());
 
-        if (caller.getRole() == UserRole.WARDEN) {
+        if (caller.getRole() == UserRole.WARDEN || caller.getRole() == UserRole.DGM) {
             return ResponseEntity.ok(complaintService.getAllComplaints());
         }
 
@@ -132,6 +142,88 @@ public class ComplaintController {
             @Valid @RequestBody ComplaintStatusUpdateRequest request) {
 
         return ResponseEntity.ok(complaintService.updateStatus(id, request));
+    }
+
+    // ─── Reopen complaint (student only, enforced by SecurityConfig) ───────────
+
+    @PostMapping("/{id}/reopen")
+    public ResponseEntity<ComplaintResponse> reopenComplaint(
+            @PathVariable Long id,
+            @Valid @RequestBody ComplaintReopenRequest request,
+            @AuthenticationPrincipal UserDetails principal) {
+
+        User caller = findUser(principal.getUsername());
+        Student student = studentService.findEntityByUser(caller);
+
+        String reason = request != null && request.getReason() != null ? request.getReason() : null;
+        return ResponseEntity.ok(complaintService.reopenComplaint(id, student.getUser().getId(), reason));
+    }
+
+    // ─── Assign complaint (warden only) ──────────────────────────────────────
+
+    @PostMapping("/{id}/assign")
+    public ResponseEntity<ComplaintAssignmentResponse> assignComplaint(
+            @PathVariable Long id,
+            @Valid @RequestBody ComplaintAssignmentRequest request,
+            @AuthenticationPrincipal UserDetails principal) {
+
+        User caller = findUser(principal.getUsername());
+
+        com.hostelsync.backend.entity.ComplaintAssignment assignment =
+            complaintAssignmentService.assignComplaint(id, request.getWardenId(), caller.getId(), request.getNotes());
+
+        ComplaintAssignmentResponse response = new ComplaintAssignmentResponse(
+            assignment.getId(),
+            assignment.getComplaint().getId(),
+            assignment.getComplaint().getComplaintNumber(),
+            assignment.getAssignedWarden().getId(),
+            assignment.getAssignedWarden().getUser().getName(),
+            caller.getId(),
+            caller.getName(),
+            assignment.getReason(),
+            assignment.getAssignedAt()
+        );
+
+        return ResponseEntity.ok(response);
+    }
+
+    // ─── Get assignment history (warden only) ────────────────────────────────
+
+    @GetMapping("/{id}/history")
+    public ResponseEntity<List<ComplaintAssignmentResponse>> getAssignmentHistory(
+            @PathVariable Long id) {
+
+        // Verify complaint exists (returns 404 if not found)
+        complaintService.findEntityById(id);
+
+        List<com.hostelsync.backend.entity.ComplaintAssignment> assignments =
+            complaintAssignmentService.getAssignmentHistory(id);
+
+        // Batch fetch assigner users by ID to prevent N+1 queries
+        java.util.Set<Long> assignerUserIds = assignments.stream()
+            .map(com.hostelsync.backend.entity.ComplaintAssignment::getAssignedById)
+            .filter(java.util.Objects::nonNull)
+            .collect(java.util.stream.Collectors.toSet());
+
+        java.util.Map<Long, String> userNames = assignerUserIds.isEmpty() ? java.util.Map.of() :
+            userRepository.findAllById(assignerUserIds).stream()
+                .collect(java.util.stream.Collectors.toMap(User::getId, User::getName));
+
+        List<ComplaintAssignmentResponse> response = assignments.stream()
+            .map(a -> new ComplaintAssignmentResponse(
+                a.getId(),
+                a.getComplaint().getId(),
+                a.getComplaint().getComplaintNumber(),
+                a.getAssignedWarden().getId(),
+                a.getAssignedWarden().getUser().getName(),
+                a.getAssignedById(),
+                userNames.getOrDefault(a.getAssignedById(), "Staff"),
+                a.getReason(),
+                a.getAssignedAt()
+            ))
+            .collect(java.util.stream.Collectors.toList());
+
+        return ResponseEntity.ok(response);
     }
 
     // ─── Helper ───────────────────────────────────────────────────────────────

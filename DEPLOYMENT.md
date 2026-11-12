@@ -40,43 +40,99 @@ npm run build
 
 ### Production Environment Variables
 
-#### Backend
-Create `application-prod.properties`:
+#### Backend (`backend/src/main/resources/application-prod.properties`)
+Production configuration is included in `application-prod.properties` and activated by default in `backend/Dockerfile` via `SPRING_PROFILES_ACTIVE=prod`. Supply all secrets and environment-specific settings strictly via environment variables (no hardcoded production defaults):
 ```properties
-# Database (DO NOT use root in production!)
+# Database (TiDB Cloud Starter / MySQL 8 over TLS)
 spring.datasource.url=${DB_URL}
 spring.datasource.username=${DB_USERNAME}
 spring.datasource.password=${DB_PASSWORD}
+spring.datasource.hikari.maximum-pool-size=${DB_POOL_MAX_SIZE:5}
+spring.datasource.hikari.minimum-idle=${DB_POOL_MIN_IDLE:1}
 
-# JPA
+# JPA (validate only — apply deployment/mysql/hostelsync_schema_tidb.sql first)
 spring.jpa.hibernate.ddl-auto=validate
 spring.jpa.show-sql=false
 
-# JWT - MUST change from default!
+# JWT (256-bit+ secret required, no fallback in prod)
 app.jwt.secret=${JWT_SECRET}
-app.jwt.expiration-ms=86400000
+app.jwt.expiration-ms=${JWT_EXPIRATION_MS:86400000}
 
-# File Upload
-app.upload.dir=${UPLOAD_DIR:/var/hostelsync/uploads}
-app.upload.max-file-size=10485760
+# Seeder, Schedulers & Storage
+app.seeder.enabled=${ENABLE_DATA_SEEDER:false}
+app.jobs.enabled=${ENABLE_SCHEDULED_JOBS:true}
+app.storage.type=${STORAGE_TYPE:supabase}
+app.file-base-url=${FILE_BASE_URL:/api/files}
+app.upload.max-file-size-bytes=${UPLOAD_MAX_SIZE:52428800}
 
-# CORS - Replace with actual frontend domain
-app.cors.allowed-origins=${CORS_ORIGINS:https://hostelsync.yourdomain.com}
+# One-Time Initial Bootstrap (disabled by default)
+app.bootstrap.enabled=${ENABLE_INITIAL_BOOTSTRAP:false}
+app.bootstrap.hostel.name=${BOOTSTRAP_HOSTEL_NAME:}
+app.bootstrap.hostel.address=${BOOTSTRAP_HOSTEL_ADDRESS:}
+app.bootstrap.dgm.name=${BOOTSTRAP_DGM_NAME:}
+app.bootstrap.dgm.email=${BOOTSTRAP_DGM_EMAIL:}
+app.bootstrap.dgm.password=${BOOTSTRAP_DGM_PASSWORD:}
+app.bootstrap.dgm.employee-id=${BOOTSTRAP_DGM_EMPLOYEE_ID:}
+app.bootstrap.dgm.designation=${BOOTSTRAP_DGM_DESIGNATION:}
+app.bootstrap.dgm.office-location=${BOOTSTRAP_DGM_OFFICE_LOCATION:}
+app.bootstrap.dgm.contact-extension=${BOOTSTRAP_DGM_CONTACT_EXTENSION:}
+app.bootstrap.warden.name=${BOOTSTRAP_WARDEN_NAME:}
+app.bootstrap.warden.email=${BOOTSTRAP_WARDEN_EMAIL:}
+app.bootstrap.warden.password=${BOOTSTRAP_WARDEN_PASSWORD:}
+app.bootstrap.warden.employee-id=${BOOTSTRAP_WARDEN_EMPLOYEE_ID:}
+app.bootstrap.warden.phone=${BOOTSTRAP_WARDEN_PHONE:}
 
-# Server
+# Supabase Private Storage (Backend-Only Service Key)
+app.supabase.url=${SUPABASE_URL:}
+app.supabase.service-role-key=${SUPABASE_SERVICE_ROLE_KEY:}
+app.supabase.bucket=${SUPABASE_BUCKET:hostelsync-files}
+
+# CORS - Replace with exact frontend domain(s)
+app.cors.allowed-origins=${CORS_ALLOWED_ORIGINS}
+
+# Server, Logging & Safe Production Error Payloads
 server.port=${PORT:8080}
-server.error.include-message=always
+server.forward-headers-strategy=framework
+server.error.include-message=never
 server.error.include-binding-errors=never
 server.error.include-stacktrace=never
 server.error.include-exception=false
+logging.level.root=${LOG_LEVEL_ROOT:INFO}
 ```
 
+> **Important:** Keep `ENABLE_DATA_SEEDER=false` in production (never seed demo accounts on a live database). Enable `ENABLE_INITIAL_BOOTSTRAP=true` only during initial setup of an empty production database, then disable it immediately afterward.
+
+#### Cloud Production Stack (Render Free + Vercel Hobby + TiDB Cloud Starter + Supabase)
+- **Database (TiDB Cloud Starter):** Import [`deployment/mysql/hostelsync_schema_tidb.sql`](deployment/mysql/hostelsync_schema_tidb.sql) (`23` tables) into `hostelsync` before starting the backend, and set `DB_URL`, `DB_USERNAME`, and `DB_PASSWORD` with TLS verification enabled.
+- **Storage (Supabase):** Create a **private** bucket named `hostelsync-files` and set `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` (backend-only), and `SUPABASE_BUCKET=hostelsync-files`.
+- **Backend (Render Web Service):**
+  - **Root Directory:** `backend`
+  - **Runtime:** `Docker` (uses [`backend/Dockerfile`](backend/Dockerfile) with Java 21, non-root execution, `SPRING_PROFILES_ACTIVE=prod`, and Render 512 MB RAM JVM options)
+  - **Health Check Path:** `/api/health`
+  - **Required Env Vars:** `DB_URL`, `DB_USERNAME`, `DB_PASSWORD`, `JWT_SECRET`, `CORS_ALLOWED_ORIGINS`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`
+  - **Optional / Defaulted Env Vars:** `STORAGE_TYPE` (`supabase`), `SUPABASE_BUCKET` (`hostelsync-files`), `FILE_BASE_URL` (`/api/files`), `UPLOAD_MAX_SIZE` (`52428800`), `JWT_EXPIRATION_MS` (`86400000`), `DB_POOL_MAX_SIZE` (`5`), `DB_POOL_MIN_IDLE` (`1`), `ENABLE_SCHEDULED_JOBS` (`true`), `ENABLE_DATA_SEEDER` (`false`), `ENABLE_INITIAL_BOOTSTRAP` (`false`), `LOG_LEVEL_ROOT` (`INFO`)
+- **Frontend (Vercel Hobby):** See [frontend/DEPLOYMENT.md](frontend/DEPLOYMENT.md) (Root Directory `frontend`, SPA rewrite via [`frontend/vercel.json`](frontend/vercel.json)).
+
+#### Safe First-Startup Bootstrap Procedure (Empty Production Database)
+1. Ensure TiDB `hostelsync` contains only the imported schema (`0` existing users/hostels) and `ENABLE_DATA_SEEDER` is `false`.
+2. Temporarily configure in Render:
+   - `ENABLE_INITIAL_BOOTSTRAP=true`
+   - Required: `BOOTSTRAP_HOSTEL_NAME`, `BOOTSTRAP_DGM_NAME`, `BOOTSTRAP_DGM_EMAIL`, `BOOTSTRAP_DGM_PASSWORD` (`12–100` characters)
+   - Optional Hostel/DGM metadata: `BOOTSTRAP_HOSTEL_ADDRESS`, `BOOTSTRAP_DGM_EMPLOYEE_ID`, `BOOTSTRAP_DGM_DESIGNATION`, `BOOTSTRAP_DGM_OFFICE_LOCATION`, `BOOTSTRAP_DGM_CONTACT_EXTENSION`
+   - Optional initial Warden *(only created if all four required fields are provided)*: `BOOTSTRAP_WARDEN_NAME`, `BOOTSTRAP_WARDEN_EMAIL`, `BOOTSTRAP_WARDEN_PASSWORD` (`12–100` characters), `BOOTSTRAP_WARDEN_EMPLOYEE_ID`, optional `BOOTSTRAP_WARDEN_PHONE`
+3. Deploy/start the Render service once. The transactional bootstrap creates the initial `Hostel`, BCrypt-hashed `DGM` user & profile, `HostelDgmAssignment`, and optional `Warden`.
+4. Verify `/api/health` returns `{"status":"UP","service":"HostelSync Backend"}` and confirm the bootstrapped DGM can log in on Vercel and view the assigned hostel.
+5. **Immediately** set `ENABLE_INITIAL_BOOTSTRAP=false` and remove every `BOOTSTRAP_*` variable in Render.
+6. Trigger a clean restart/redeploy and verify normal startup and DGM login still succeed with `ENABLE_DATA_SEEDER=false`.
+
 #### Frontend
-Create `.env.production`:
+Configure Vercel environment variables (see [frontend/DEPLOYMENT.md](frontend/DEPLOYMENT.md) and `frontend/.env.example`):
 ```env
 VITE_USE_REAL_BACKEND=true
 VITE_API_BASE_URL=https://api.hostelsync.yourdomain.com/api
 ```
+
+> **Free-Tier Cloud Guide:** For deploying with **Render Free** (`backend/Dockerfile`), **Vercel Hobby** (`frontend/vercel.json`), **TiDB Cloud Starter** (`deployment/mysql/hostelsync_schema_tidb.sql`), and **Supabase Private Storage**, also refer to [frontend/DEPLOYMENT.md](frontend/DEPLOYMENT.md), [SUPABASE_SETUP.md](SUPABASE_SETUP.md), and [deployment/mysql/README.md](deployment/mysql/README.md).
 
 ---
 
@@ -144,7 +200,7 @@ Environment="DB_USERNAME=hostelsync_user"
 Environment="DB_PASSWORD=secure_password_here"
 Environment="JWT_SECRET=your-super-secure-jwt-secret-at-least-256-bits-long"
 Environment="UPLOAD_DIR=/var/hostelsync/uploads"
-Environment="CORS_ORIGINS=https://hostelsync.yourdomain.com"
+Environment="CORS_ALLOWED_ORIGINS=https://hostelsync.yourdomain.com"
 
 [Install]
 WantedBy=multi-user.target
@@ -314,7 +370,7 @@ services:
       DB_PASSWORD: ${MYSQL_PASSWORD}
       JWT_SECRET: ${JWT_SECRET}
       UPLOAD_DIR: /app/uploads
-      CORS_ORIGINS: ${FRONTEND_URL}
+      CORS_ALLOWED_ORIGINS: ${FRONTEND_URL}
     volumes:
       - uploads:/app/uploads
     depends_on:
@@ -384,7 +440,7 @@ eb create hostelsync-prod --instance-type t3.medium --database
 eb setenv DB_USERNAME=admin \
           DB_PASSWORD=your_password \
           JWT_SECRET=your_secret \
-          CORS_ORIGINS=https://your-frontend.s3-website.amazonaws.com
+          CORS_ALLOWED_ORIGINS=https://your-frontend.s3-website.amazonaws.com
 ```
 
 5. Deploy:
@@ -419,7 +475,7 @@ Expected: `{"status":"UP","service":"HostelSync Backend"}`
 Open browser: https://hostelsync.yourdomain.com
 
 ### 3. Test Login
-Try logging in with demo credentials
+Sign in on the deployed frontend using your bootstrapped DGM (or Warden/Student) production credentials — never enable development demo accounts (`ENABLE_DATA_SEEDER`) in production.
 
 ### 4. Check Logs
 ```bash
@@ -462,11 +518,10 @@ tail -f /var/log/hostelsync/application.log
 - Regular security updates
 
 ### 4. File Uploads
-- Validate file types
-- Scan for malware
-- Store outside web root
-- Limit file sizes
-- Use signed URLs for downloads
+- Validate file types (`JPEG`, `PNG`, `WEBP`, `MP4`, `WEBM`, `MOV`)
+- Validate maximum file size (`50 MB` default via `UPLOAD_MAX_SIZE=52428800`)
+- Store in a private Supabase Storage bucket (`hostelsync-files`) in production (never in a public folder or web root)
+- Serve downloads strictly through JWT-authenticated backend proxy endpoints (`/api/files/{storedFileName}`) with role/ownership checks
 
 ---
 
@@ -474,10 +529,10 @@ tail -f /var/log/hostelsync/application.log
 
 ### 1. Application Monitoring
 ```bash
-# Spring Boot Actuator endpoints
-GET /actuator/health
-GET /actuator/metrics
-GET /actuator/info
+# Public health check endpoint
+GET /api/health
+# Authentication service ping
+GET /api/auth/ping
 ```
 
 ### 2. Log Aggregation
@@ -543,7 +598,7 @@ jobs:
       - name: Test Backend
         run: cd backend && ./mvnw test
       - name: Test Frontend
-        run: cd frontend && npm ci && npm test
+        run: cd frontend && node --test src/utils/wardenForm.test.mjs && npm run lint && npm run build
 
   deploy:
     needs: test
@@ -583,7 +638,7 @@ jobs:
 - Verify backend port is 8080
 
 **Issue**: CORS errors
-- Update `CORS_ORIGINS` to include frontend domain
+- Update `CORS_ALLOWED_ORIGINS` to include frontend domain
 - Restart backend service
 
 ---

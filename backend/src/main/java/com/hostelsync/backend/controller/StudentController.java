@@ -56,25 +56,41 @@ public class StudentController {
         return ResponseEntity.status(HttpStatus.CREATED).body(created);
     }
 
-    // ─── Get by DB id ─────────────────────────────────────────────────────────
+    // ─── Current student profile (authenticated student) ────────────────────
 
-    @GetMapping("/{id}")
-    public ResponseEntity<StudentResponse> getStudentById(
-            @PathVariable Long id,
+    @GetMapping("/me")
+    public ResponseEntity<StudentResponse> getCurrentStudent(
+            @AuthenticationPrincipal UserDetails principal) {
+        StudentResponse resp = studentService.getCurrentStudentProfile(principal.getUsername());
+        return ResponseEntity.ok(resp);
+    }
+
+    // ─── Get by DB id or student ID string ───────────────────────────────────
+
+    @GetMapping("/{identifier}")
+    public ResponseEntity<StudentResponse> getStudentByIdentifier(
+            @PathVariable String identifier,
             @AuthenticationPrincipal UserDetails principal) {
 
-        // Students may only fetch their own record
-        User caller = findUser(principal.getUsername());
-        if (caller.getRole() == UserRole.STUDENT) {
-            // Look up the student to verify ownership
-            StudentResponse resp = studentService.getStudentById(id);
-            if (!resp.getEmail().equals(caller.getEmail())) {
-                return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
-            }
-            return ResponseEntity.ok(resp);
+        if ("me".equalsIgnoreCase(identifier)) {
+            return ResponseEntity.ok(studentService.getCurrentStudentProfile(principal.getUsername()));
         }
 
-        return ResponseEntity.ok(studentService.getStudentById(id));
+        User caller = findUser(principal.getUsername());
+        StudentResponse resp;
+
+        if (identifier.matches("^\\d+$")) {
+            resp = studentService.getStudentById(Long.parseLong(identifier));
+        } else {
+            resp = studentService.getStudentByStudentId(identifier);
+        }
+
+        // Students may only fetch their own record
+        if (caller.getRole() == UserRole.STUDENT && !resp.getEmail().equals(caller.getEmail())) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+
+        return ResponseEntity.ok(resp);
     }
 
     // ─── Get by college student ID string ────────────────────────────────────
@@ -95,7 +111,7 @@ public class StudentController {
         return ResponseEntity.ok(resp);
     }
 
-    // ─── Update ───────────────────────────────────────────────────────────────
+    // ─── Update (warden-only official profile edit) ──────────────────────────
 
     @PutMapping("/{id}")
     public ResponseEntity<StudentResponse> updateStudent(
@@ -104,9 +120,26 @@ public class StudentController {
             @AuthenticationPrincipal UserDetails principal) {
 
         User caller = findUser(principal.getUsername());
-        boolean isWarden = caller.getRole() == UserRole.WARDEN;
+        boolean isWardenOrDgm = caller.getRole() == UserRole.WARDEN || caller.getRole() == UserRole.DGM;
 
-        StudentResponse updated = studentService.updateStudent(id, request, isWarden, caller.getEmail());
+        StudentResponse updated = studentService.updateStudent(id, request, isWardenOrDgm, caller.getEmail());
+        return ResponseEntity.ok(updated);
+    }
+
+    // ─── Upload Student Photo (warden-only) ──────────────────────────────────
+
+    @PostMapping(value = "/{id}/photo", consumes = org.springframework.http.MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<StudentResponse> uploadStudentPhoto(
+            @PathVariable Long id,
+            @RequestParam("file") org.springframework.web.multipart.MultipartFile file,
+            @AuthenticationPrincipal UserDetails principal) {
+
+        User caller = findUser(principal.getUsername());
+        if (caller.getRole() != UserRole.WARDEN && caller.getRole() != UserRole.DGM) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+
+        StudentResponse updated = studentService.uploadStudentPhoto(id, file, caller);
         return ResponseEntity.ok(updated);
     }
 

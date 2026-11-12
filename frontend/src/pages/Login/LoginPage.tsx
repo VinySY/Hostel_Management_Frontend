@@ -1,47 +1,70 @@
 import React, { useState } from 'react';
-import { Eye, EyeOff, Layers, Lock, Mail, ShieldCheck, UserCheck } from 'lucide-react';
+import { Eye, EyeOff, Layers, Lock, Mail, ShieldCheck, UserCheck, Building2 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { Button } from '../../components/common/Button';
 import { Input } from '../../components/common/Input';
 import { useToast } from '../../context/ToastContext';
+import { UserRole } from '../../types';
+
+const IS_DEMO_LOGIN_ENABLED =
+  import.meta.env.DEV && import.meta.env.VITE_ENABLE_DEMO_LOGIN !== 'false';
+
+/**
+ * Development-only demo accounts. Stripped from production bundles by Vite dead-code elimination.
+ */
+const getDemoCredentials = (role: UserRole): { email: string; password: string } => {
+  if (!IS_DEMO_LOGIN_ENABLED) {
+    return { email: '', password: '' };
+  }
+  const demoAccounts: Record<UserRole, { email: string; password: string }> = {
+    STUDENT: { email: 'rahul.sharma@hostelhub.edu', password: 'studentPass2026' },
+    WARDEN: { email: 'warden.vance@hostelhub.edu', password: 'wardenPass2026' },
+    DGM: { email: 'dgm.director@hostelhub.edu', password: 'dgmPass2026' },
+  };
+  return demoAccounts[role];
+};
 
 export const LoginPage: React.FC = () => {
   const { login } = useAuth();
   const { showToast } = useToast();
 
-  const [email, setEmail] = useState('rahul.sharma@hostelhub.edu');
-  const [password, setPassword] = useState('password123');
+  const initialDemo = getDemoCredentials('STUDENT');
+  const [email, setEmail] = useState(initialDemo.email);
+  const [password, setPassword] = useState(initialDemo.password);
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [selectedRole, setSelectedRole] = useState<'STUDENT' | 'WARDEN'>('STUDENT');
+  const [selectedRole, setSelectedRole] = useState<UserRole>('STUDENT');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email || !password) {
+    const normalizedEmail = email.trim();
+    if (!normalizedEmail || !password) {
       showToast('Please enter both email and password', 'error');
       return;
     }
 
     setIsLoading(true);
     try {
-      await login(selectedRole, { email, password });
-      showToast(`Welcome back! Logged in as ${selectedRole.toLowerCase()}.`, 'success');
-    } catch {
-      showToast('Login failed. Please check your credentials.', 'error');
+      // The backend is the source of truth for the authenticated role.
+      await login(selectedRole, { email: normalizedEmail, password });
+      showToast('Welcome back!', 'success');
+    } catch (error) {
+      const message =
+        error instanceof Error && error.message
+          ? error.message
+          : 'Login failed. Please check your credentials.';
+      showToast(message, 'error');
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleDemoSelect = (role: 'STUDENT' | 'WARDEN') => {
+  const handleDemoSelect = (role: UserRole) => {
+    if (!IS_DEMO_LOGIN_ENABLED) return;
+    const creds = getDemoCredentials(role);
     setSelectedRole(role);
-    if (role === 'STUDENT') {
-      setEmail('rahul.sharma@hostelhub.edu');
-      setPassword('studentPass2026');
-    } else {
-      setEmail('warden.vance@hostelhub.edu');
-      setPassword('wardenPass2026');
-    }
+    setEmail(creds.email);
+    setPassword(creds.password);
   };
 
   return (
@@ -93,43 +116,57 @@ export const LoginPage: React.FC = () => {
             </p>
           </div>
 
-          {/* Quick Demo Selector */}
-          <div className="mb-6 p-3.5 bg-blue-50 border border-blue-100 rounded-xl">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-semibold text-blue-900 flex items-center">
-                <ShieldCheck className="w-3.5 h-3.5 mr-1 text-blue-600" /> Fast Demo Access:
-              </span>
-              <span className="text-[10px] text-blue-700 bg-blue-200/50 px-2 py-0.5 rounded font-mono">
-                Development Only
-              </span>
+          {/* Quick Demo Selector (Development Only) */}
+          {IS_DEMO_LOGIN_ENABLED && (
+            <div className="mb-6 p-3.5 bg-blue-50 border border-blue-100 rounded-xl">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs font-semibold text-blue-900 flex items-center">
+                  <ShieldCheck className="w-3.5 h-3.5 mr-1 text-blue-600" /> Fast Demo Access:
+                </span>
+                <span className="text-[10px] text-blue-700 bg-blue-200/50 px-2 py-0.5 rounded font-mono">
+                  Development Only
+                </span>
+              </div>
+              <div className="grid grid-cols-3 gap-2">
+                <button
+                  type="button"
+                  onClick={() => handleDemoSelect('STUDENT')}
+                  className={`py-1.5 px-2 rounded-lg text-xs font-medium border flex items-center justify-center space-x-1.5 transition-colors cursor-pointer ${
+                    selectedRole === 'STUDENT'
+                      ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
+                      : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'
+                  }`}
+                >
+                  <UserCheck className="w-3.5 h-3.5" />
+                  <span>Student</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleDemoSelect('WARDEN')}
+                  className={`py-1.5 px-2 rounded-lg text-xs font-medium border flex items-center justify-center space-x-1.5 transition-colors cursor-pointer ${
+                    selectedRole === 'WARDEN'
+                      ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
+                      : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'
+                  }`}
+                >
+                  <ShieldCheck className="w-3.5 h-3.5" />
+                  <span>Warden</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleDemoSelect('DGM')}
+                  className={`py-1.5 px-2 rounded-lg text-xs font-medium border flex items-center justify-center space-x-1.5 transition-colors cursor-pointer ${
+                    selectedRole === 'DGM'
+                      ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
+                      : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'
+                  }`}
+                >
+                  <Building2 className="w-3.5 h-3.5" />
+                  <span>DGM Demo</span>
+                </button>
+              </div>
             </div>
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                onClick={() => handleDemoSelect('STUDENT')}
-                className={`py-1.5 px-3 rounded-lg text-xs font-medium border flex items-center justify-center space-x-1.5 transition-colors cursor-pointer ${
-                  selectedRole === 'STUDENT'
-                    ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
-                    : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'
-                }`}
-              >
-                <UserCheck className="w-3.5 h-3.5" />
-                <span>Student Demo</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => handleDemoSelect('WARDEN')}
-                className={`py-1.5 px-3 rounded-lg text-xs font-medium border flex items-center justify-center space-x-1.5 transition-colors cursor-pointer ${
-                  selectedRole === 'WARDEN'
-                    ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
-                    : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'
-                }`}
-              >
-                <ShieldCheck className="w-3.5 h-3.5" />
-                <span>Warden Demo</span>
-              </button>
-            </div>
-          </div>
+          )}
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <Input

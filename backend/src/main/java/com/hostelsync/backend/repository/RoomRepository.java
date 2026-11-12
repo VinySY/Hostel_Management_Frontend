@@ -16,9 +16,15 @@ public interface RoomRepository extends JpaRepository<Room, Long> {
 
     List<Room> findByHostel(Hostel hostel);
 
+    List<Room> findByHostelId(Long hostelId);
+
+    List<Room> findByHostelIdAndFloor(Long hostelId, int floor);
+
     Optional<Room> findByRoomNumberAndHostel(String roomNumber, Hostel hostel);
 
     boolean existsByRoomNumberAndHostel(String roomNumber, Hostel hostel);
+
+    boolean existsByRoomNumberAndHostelId(String roomNumber, Long hostelId);
 
     List<Room> findByActiveTrue();
 
@@ -46,4 +52,10 @@ public interface RoomRepository extends JpaRepository<Room, Long> {
 
     /** Count rooms */
     long countByActiveTrue();
+
+    long countByHostelId(Long hostelId);
+
+    @Query("SELECT COALESCE(SUM(r.capacity), 0) FROM Room r WHERE r.hostel.id = :hostelId")
+    long sumCapacityByHostelId(@Param("hostelId") Long hostelId);
 }
+

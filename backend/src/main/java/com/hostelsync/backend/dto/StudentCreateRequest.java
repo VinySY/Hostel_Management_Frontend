@@ -4,7 +4,6 @@ import jakarta.validation.constraints.*;
 
 /**
  * Request body for POST /api/students (warden creates a new student).
- * Also used as the update request body for PUT /api/students/{id}.
  */
 public class StudentCreateRequest {
 
@@ -21,7 +20,8 @@ public class StudentCreateRequest {
     @Size(max = 200)
     private String email;
 
-    /** Initial password set by the warden (will be hashed) */
+    /** Initial password set by the warden (will be BCrypt-hashed) */
+    @NotBlank(message = "Password is required")
     @Size(min = 6, max = 100, message = "Password must be at least 6 characters")
     private String password;
 
@@ -36,7 +36,8 @@ public class StudentCreateRequest {
     @Size(max = 150)
     private String course;
 
-    @Min(1) @Max(6)
+    @Min(value = 1, message = "Academic year must be between 1 and 6")
+    @Max(value = 6, message = "Academic year must be between 1 and 6")
     private int year = 1;
 
     @Size(max = 120)
@@ -50,6 +51,8 @@ public class StudentCreateRequest {
 
     /** "Active" | "Inactive" | "Suspended" */
     private String status = "Active";
+
+    private String avatarUrl;
 
     // ─── Getters & Setters ────────────────────────────────────────────────────
 
@@ -88,4 +91,7 @@ public class StudentCreateRequest {
 
     public String getStatus() { return status; }
     public void setStatus(String status) { this.status = status; }
+
+    public String getAvatarUrl() { return avatarUrl; }
+    public void setAvatarUrl(String avatarUrl) { this.avatarUrl = avatarUrl; }
 }

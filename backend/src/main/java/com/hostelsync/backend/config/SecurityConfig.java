@@ -75,6 +75,8 @@ public class SecurityConfig {
                 // Student-only endpoints
                 .requestMatchers(HttpMethod.GET,  "/api/complaints/my").hasRole("STUDENT")
                 .requestMatchers(HttpMethod.POST, "/api/complaints").hasRole("STUDENT")
+                .requestMatchers(HttpMethod.POST, "/api/complaints/*/escalate").hasRole("STUDENT")
+                .requestMatchers(HttpMethod.POST, "/api/complaints/*/reopen").hasRole("STUDENT")
 
                 // Warden-only endpoints
                 .requestMatchers(HttpMethod.GET,    "/api/students").hasRole("WARDEN")
@@ -82,6 +84,23 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.DELETE, "/api/students/**").hasRole("WARDEN")
                 .requestMatchers(HttpMethod.PATCH,  "/api/complaints/*/status").hasRole("WARDEN")
                 .requestMatchers(HttpMethod.GET,    "/api/dashboard/stats").hasRole("WARDEN")
+                .requestMatchers(HttpMethod.POST,   "/api/complaints/*/assign").hasRole("WARDEN")
+                .requestMatchers(HttpMethod.GET,    "/api/complaints/*/history").hasAnyRole("WARDEN", "DGM")
+
+                // DGM-only endpoints
+                .requestMatchers("/api/dgm/**").hasRole("DGM")
+                .requestMatchers("/api/escalations/**").hasRole("DGM")
+
+                // SLA configurations - reads for authenticated users, modifications for administrative roles
+                .requestMatchers(HttpMethod.GET,  "/api/sla-configurations/**").authenticated()
+                .requestMatchers(HttpMethod.POST, "/api/sla-configurations/**").hasAnyRole("WARDEN", "DGM")
+                .requestMatchers(HttpMethod.PUT,  "/api/sla-configurations/**").hasAnyRole("WARDEN", "DGM")
+
+                // Notifications - authenticated users only
+                .requestMatchers("/api/notifications/**").authenticated()
+
+                // Audit logs - authenticated users only
+                .requestMatchers("/api/audit-logs/**").authenticated()
 
                 // Everything else requires authentication
                 .anyRequest().authenticated()

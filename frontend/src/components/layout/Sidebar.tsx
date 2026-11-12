@@ -6,13 +6,20 @@ import {
   PlusCircle,
   Users,
   Building,
+  Building2,
   User as UserIcon,
   LogOut,
   X,
   Shield,
   Layers,
+  TrendingUp,
+  Megaphone,
+  ClipboardList,
+  CheckSquare,
+  AlertTriangle,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import { ProtectedImage } from '../common/ProtectedImage';
 
 interface SidebarProps {
   currentTab: string;
@@ -34,18 +41,44 @@ export const Sidebar: React.FC<SidebarProps> = ({
     { id: 'student-room', label: 'My Room', icon: Home },
     { id: 'student-complaints', label: 'My Complaints', icon: AlertCircle },
     { id: 'student-complaint-new', label: 'Submit Complaint', icon: PlusCircle },
+    { id: 'student-notices', label: 'Notices & News', icon: Megaphone },
+    { id: 'student-surveys', label: 'Quality Surveys', icon: ClipboardList },
     { id: 'student-profile', label: 'Profile', icon: UserIcon },
   ];
 
   const wardenNavItems = [
     { id: 'warden-dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'warden-students', label: 'Students', icon: Users },
-    { id: 'warden-rooms', label: 'Rooms', icon: Building },
+    { id: 'warden-rooms', label: 'Rooms & Inventory', icon: Building },
     { id: 'warden-complaints', label: 'Complaints', icon: AlertCircle },
+    { id: 'warden-tasks', label: 'Feedback Tasks', icon: CheckSquare },
+    { id: 'warden-notices', label: 'Hostel Notices', icon: Megaphone },
     { id: 'warden-profile', label: 'Profile', icon: UserIcon },
   ];
 
-  const navItems = role === 'WARDEN' ? wardenNavItems : studentNavItems;
+  const dgmNavItems = [
+    { id: 'dgm-dashboard', label: 'Dashboard', icon: LayoutDashboard },
+    { id: 'dgm-escalations', label: 'Escalations', icon: TrendingUp },
+    { id: 'dgm-overdue', label: 'Overdue & SLA', icon: AlertTriangle },
+    { id: 'dgm-hostels', label: 'Campus Hostels', icon: Building2 },
+    { id: 'dgm-wardens', label: 'Warden Roster', icon: Users },
+    { id: 'dgm-surveys', label: 'Quality Surveys', icon: ClipboardList },
+    { id: 'dgm-profile', label: 'Profile', icon: UserIcon },
+  ];
+
+  const navItems =
+    role === 'WARDEN'
+      ? wardenNavItems
+      : role === 'DGM'
+      ? dgmNavItems
+      : studentNavItems;
+
+  const portalLabel =
+    role === 'WARDEN'
+      ? 'Warden Portal'
+      : role === 'DGM'
+      ? 'DGM Portal'
+      : 'Student Portal';
 
   const handleNavClick = (id: string) => {
     onSelectTab(id);
@@ -90,18 +123,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
         {/* User Role Badge */}
         <div className="px-6 py-3 bg-slate-50 border-b border-slate-100 flex items-center justify-between">
           <div className="flex items-center space-x-2">
-            <Shield className="w-4 h-4 text-blue-600" />
+            <Shield className={`w-4 h-4 ${role === 'DGM' ? 'text-indigo-600' : 'text-blue-600'}`} />
             <span className="text-xs font-semibold text-slate-700 uppercase tracking-wider">
-              {role === 'WARDEN' ? 'Warden Portal' : 'Student Portal'}
+              {portalLabel}
             </span>
           </div>
-          <button
-            onClick={() => switchRoleDemo(role === 'WARDEN' ? 'STUDENT' : 'WARDEN')}
-            className="text-[11px] text-blue-600 hover:underline font-medium cursor-pointer"
-            title="Switch between student and warden view for demo"
-          >
-            Switch to {role === 'WARDEN' ? 'Student' : 'Warden'}
-          </button>
         </div>
 
         {/* Navigation list */}
@@ -129,8 +155,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
         {/* Footer with logged in profile info & Logout */}
         <div className="p-4 border-t border-slate-100 bg-slate-50/50">
           <div className="flex items-center space-x-3 mb-3">
-            <img
-              src={user?.avatar || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=150&q=80'}
+            <ProtectedImage
+              src={user?.avatar}
+              fallbackSrc="https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=150&q=80"
               alt={user?.name || 'User'}
               className="w-9 h-9 rounded-full object-cover border border-slate-200"
             />

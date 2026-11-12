@@ -46,4 +46,64 @@ public interface ComplaintRepository extends JpaRepository<Complaint, Long> {
     /** Highest complaint number sequence (used to generate the next number) */
     @Query("SELECT MAX(c.id) FROM Complaint c")
     Optional<Long> findMaxId();
+
+    /** All complaints in the specified hostels */
+    @Query("""
+           SELECT c FROM Complaint c
+           JOIN c.student s
+           JOIN s.room r
+           JOIN r.hostel h
+           WHERE h.id IN :hostelIds
+           ORDER BY c.createdAt DESC
+           """)
+    List<Complaint> findByHostelIds(@Param("hostelIds") List<Long> hostelIds);
+
+    @Query("""
+           SELECT COUNT(c) FROM Complaint c
+           WHERE c.assignedWarden.id = :wardenId
+           AND c.status NOT IN (
+               com.hostelsync.backend.entity.ComplaintStatus.Resolved,
+               com.hostelsync.backend.entity.ComplaintStatus.Rejected
+           )
+           """)
+    long countActiveComplaintsForWarden(@Param("wardenId") Long wardenId);
+
+    @Query("""
+           SELECT COUNT(c) FROM Complaint c
+           WHERE c.assignedWarden.id = :wardenId
+           AND c.status = com.hostelsync.backend.entity.ComplaintStatus.Resolved
+           """)
+    long countResolvedComplaintsForWarden(@Param("wardenId") Long wardenId);
+
+    @Query("""
+           SELECT COUNT(c) FROM Complaint c
+           JOIN c.student s
+           JOIN s.room r
+           WHERE r.hostel.id = :hostelId
+           AND c.status NOT IN (
+               com.hostelsync.backend.entity.ComplaintStatus.Resolved,
+               com.hostelsync.backend.entity.ComplaintStatus.Rejected
+           )
+           """)
+    long countActiveComplaintsForHostel(@Param("hostelId") Long hostelId);
+
+    @Query("""
+           SELECT c FROM Complaint c
+           JOIN c.student s
+           JOIN s.room r
+           WHERE r.hostel.id = :hostelId
+           ORDER BY c.createdAt DESC
+           """)
+    List<Complaint> findByHostelId(@Param("hostelId") Long hostelId);
+
+    @Query("""
+           SELECT c FROM Complaint c
+           WHERE (c.overdueAt IS NOT NULL OR (c.slaDeadline IS NOT NULL AND c.slaDeadline < :now))
+           AND c.status NOT IN (
+               com.hostelsync.backend.entity.ComplaintStatus.Resolved,
+               com.hostelsync.backend.entity.ComplaintStatus.Rejected
+           )
+           ORDER BY c.slaDeadline ASC
+           """)
+    List<Complaint> findOverdueComplaints(@Param("now") java.time.LocalDateTime now);
 }

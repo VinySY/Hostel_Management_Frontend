@@ -1,17 +1,30 @@
-# Backend
-backend/target/
-backend/uploads/
+# Environment files & local secrets (preserve all *.env.example templates)
+.env
+.env.*
+!.env.example
+backend/.env
+backend/.env.*
+!backend/.env.example
+.backend/.env
+frontend/.env
+frontend/.env.*
+!frontend/.env.example
+**/application-local.properties
 backend/src/main/resources/application-local.properties
-backend/.mvn/
-backend/mvnw
-backend/mvnw.cmd
+
+# Backend build & local uploads
+backend/target/
+target/
+backend/uploads/
+
+# Raw SQL dumps (keep deployment/mysql/hostelsync_schema_tidb.sql explicitly reviewable)
+*.sql
 
 # Frontend
 frontend/node_modules/
+node_modules/
 frontend/dist/
-frontend/.env
-frontend/.env.local
-frontend/.env.production.local
+dist/
 
 # IDEs
 .idea/
@@ -30,14 +43,15 @@ desktop.ini
 *.log
 logs/
 
-# Sensitive files
-application-prod.properties
+# Private keys, certificates, and credentials
 *.pem
 *.key
 *.p12
 *.jks
+*.pfx
+*.crt
 
-# Temporary files
+# Temporary & backup files
 *.tmp
 *.temp
 *.bak

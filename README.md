@@ -37,9 +37,9 @@ A full-stack web application for managing college hostels, built with Spring Boo
 
 ### Security Features
 - JWT-based stateless authentication
-- Role-based access control (STUDENT, WARDEN)
+- Role-based access control (`STUDENT`, `WARDEN`, `DGM`)
 - IDOR (Insecure Direct Object Reference) protection
-- Secure file upload validation
+- Secure file upload validation (JPEG, PNG, WEBP, MP4, WEBM, MOV up to 50 MB)
 - Password encryption with BCrypt
 
 ## 🚀 Getting Started
@@ -58,12 +58,8 @@ A full-stack web application for managing college hostels, built with Spring Boo
 CREATE DATABASE hostelsync CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 ```
 
-3. Update database credentials in `backend/src/main/resources/application.properties`:
-```properties
-spring.datasource.url=jdbc:mysql://localhost:3306/hostelsync
-spring.datasource.username=root
-spring.datasource.password=YOUR_PASSWORD_HERE
-```
+3. Configure local database credentials without modifying tracked files:
+   Create the gitignored `backend/src/main/resources/application-local.properties` (or pass `DB_URL`, `DB_USERNAME`, and `DB_PASSWORD` via environment variables). Never commit real database passwords into `application.properties`.
 
 ### Backend Setup
 
@@ -81,14 +77,20 @@ cd backend
 ./mvnw clean install
 ```
 
-3. Run the application:
+3. Run the application (the `local` profile loads the ignored
+   `application-local.properties` and enables the development demo seeder):
 ```bash
-# Windows
-.\mvnw.cmd spring-boot:run
+# Windows (quote the -D argument so PowerShell does not split it)
+.\mvnw.cmd spring-boot:run "-Dspring-boot.run.profiles=local"
 
 # Linux/Mac
-./mvnw spring-boot:run
+./mvnw spring-boot:run -Dspring-boot.run.profiles=local
 ```
+
+   If you cannot use a local profile file, supply the database credentials as
+   environment variables and enable the seeder explicitly:
+   `DB_URL`, `DB_USERNAME`, `DB_PASSWORD`, `ENABLE_DATA_SEEDER=true`.
+   Never enable the seeder in production.
 
 4. Verify backend is running:
 ```bash
@@ -112,7 +114,9 @@ npm install
 3. Create `.env` file in frontend directory:
 ```env
 VITE_USE_REAL_BACKEND=true
-VITE_API_BASE_URL=http://localhost:8080/api
+# Leave blank to call the backend on the same hostname as the browser (port 8080).
+# This is required when the app is opened from another device on the LAN.
+VITE_API_BASE_URL=
 ```
 
 4. Start development server:
@@ -122,19 +126,24 @@ npm run dev
 
 5. Access the application at http://localhost:3000
 
-## 🔐 Demo Credentials
+## 🔐 Demo Credentials (Development Only)
 
-The application seeds demo data on first startup.
+When explicitly enabled for local development (`ENABLE_DATA_SEEDER=true` or `-Dspring-boot.run.profiles=local`), `DataSeeder` creates development demo accounts. **Keep `ENABLE_DATA_SEEDER=false` in production.**
 
 ### Student Account
 - **Email**: rahul.sharma@hostelhub.edu
 - **Password**: studentPass2026
-- **Details**: Room 101, Bed A, Computer Science
+- **Details**: Room 204 (Block A), B.Tech Computer Science
 
 ### Warden Account
 - **Email**: warden.vance@hostelhub.edu
 - **Password**: wardenPass2026
 - **Details**: Dr. Arthur Vance, Chief Warden
+
+### DGM Account
+- **Email**: dgm.director@hostelhub.edu
+- **Password**: dgmPass2026
+- **Details**: Dr. Rajesh Verma, Director General of Hostels
 
 ## 📁 Project Structure
 
@@ -199,10 +208,11 @@ cd backend
 .\mvnw.cmd test
 ```
 
-### Frontend Tests
+### Frontend Checks
 ```bash
 cd frontend
-npm run test
+node --test src/utils/wardenForm.test.mjs
+npm run lint
 ```
 
 ### Build for Production
@@ -220,23 +230,26 @@ npm run build
 
 ### Environment Variables
 
-#### Backend (`application.properties`)
+#### Backend (`application.properties` / `application-prod.properties`)
 ```properties
 # Database
 spring.datasource.url=${DB_URL:jdbc:mysql://localhost:3306/hostelsync}
 spring.datasource.username=${DB_USERNAME:root}
-spring.datasource.password=${DB_PASSWORD:your_password}
+spring.datasource.password=${DB_PASSWORD:}
 
 # JWT
-app.jwt.secret=${JWT_SECRET:your-secret-key-at-least-256-bits-long-for-HS256}
-app.jwt.expiration-ms=${JWT_EXPIRATION:86400000}
+app.jwt.secret=${JWT_SECRET}
+app.jwt.expiration-ms=${JWT_EXPIRATION_MS:86400000}
 
-# File Upload
-app.upload.dir=${UPLOAD_DIR:./uploads}
-app.upload.max-file-size=${MAX_FILE_SIZE:10485760}
+# Seeder, Bootstrap & Storage
+app.seeder.enabled=${ENABLE_DATA_SEEDER:false}
+app.bootstrap.enabled=${ENABLE_INITIAL_BOOTSTRAP:false}
+app.storage.type=${STORAGE_TYPE:local}
+app.upload.dir=${UPLOAD_DIR:uploads}
+app.upload.max-file-size-bytes=${UPLOAD_MAX_SIZE:52428800}
 
 # CORS
-app.cors.allowed-origins=${CORS_ORIGINS:http://localhost:3000}
+app.cors.allowed-origins=${CORS_ALLOWED_ORIGINS}
 ```
 
 #### Frontend (`.env`)
@@ -292,31 +305,33 @@ VITE_API_BASE_URL=http://localhost:8080/api
 - Check backend logs for authentication errors
 
 ### File upload fails
-- Verify `uploads/` directory exists and is writable
-- Check file size is under 10MB
-- Verify file type is allowed (images, PDFs)
+- For local storage (`STORAGE_TYPE=local`), verify `uploads/` directory exists and is writable
+- For production (`STORAGE_TYPE=supabase`), verify `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, and private bucket `hostelsync-files`
+- Check file size is under 50 MB (`UPLOAD_MAX_SIZE=52428800`)
+- Verify file type is allowed (`JPEG`, `PNG`, `WEBP`, `MP4`, `WEBM`, `MOV`; PDFs are not supported)
 
 ## 📝 Development Notes
 
-### Seeded Data
-On first startup, the backend automatically seeds:
-- 1 Hostel: "HostelHub - A-Block"
+### Seeded Data (`ENABLE_DATA_SEEDER=true` local dev only)
+When `DataSeeder` is enabled on an empty local database, it creates:
+- 1 Hostel: "HostelHub Campus Hostel"
 - 5 Rooms: 101, 204, 205, 302, 304
 - 7 Students: Rahul, Aman, Arjun, Devansh, Tanya, Karan, Rohan
 - 1 Warden: Dr. Arthur Vance
+- 1 DGM: Dr. Rajesh Verma
 
 ### Security Boundaries
-- Students can only view/edit their own profile
-- Students can only view their own complaints
-- Wardens can view all students and complaints
-- Role enforcement at service layer prevents privilege escalation
-- JWT tokens expire after 24 hours (configurable)
+- Students can only view/edit their own allowed profile fields and complaints
+- Wardens manage students, rooms, notices, and complaints
+- DGMs manage hostels, wardens, escalations, and SLA oversight
+- Role enforcement at controller and service layers prevents privilege escalation
+- JWT tokens expire after 24 hours (configurable via `JWT_EXPIRATION_MS`)
 
 ### File Upload
-- Files stored locally in `backend/uploads/`
-- Filename format: `UUID_originalname.ext`
-- Maximum size: 10MB (configurable)
-- Allowed types: images, PDFs (extensible)
+- Stored in `backend/uploads/` locally (`STORAGE_TYPE=local`) or private Supabase bucket `hostelsync-files` in production (`STORAGE_TYPE=supabase`)
+- Filename format: `<UUID>.<ext>`
+- Maximum size: 50 MB (`UPLOAD_MAX_SIZE=52428800`, configurable)
+- Allowed types: `JPEG`, `PNG`, `WEBP`, `MP4`, `WEBM`, `MOV`
 
 ## 🤝 Contributing
 

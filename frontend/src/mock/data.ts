@@ -1,6 +1,6 @@
 import { Complaint, NotificationItem, Room, Student, User } from '../types';
 
-export const mockUsers: Record<'student' | 'warden', User> = {
+export const mockUsers: Record<'student' | 'warden' | 'dgm', User> = {
   student: {
     id: 'usr-101',
     name: 'Rahul Sharma',
@@ -15,6 +15,13 @@ export const mockUsers: Record<'student' | 'warden', User> = {
     email: 'warden.vance@hostelhub.edu',
     role: 'WARDEN',
     avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&w=150&q=80',
+  },
+  dgm: {
+    id: 'usr-dgm-001',
+    name: 'Dr. Rajesh Verma',
+    email: 'dgm.director@hostelhub.edu',
+    role: 'DGM',
+    avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=150&q=80',
   },
 };
 

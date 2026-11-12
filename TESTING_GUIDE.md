@@ -7,20 +7,27 @@ This guide provides step-by-step instructions for testing all features of the Ho
 - Both servers running:
   - Backend: http://localhost:8080
   - Frontend: http://localhost:3000
-- Demo data seeded (automatic on first startup)
+- Demo data seeded (`ENABLE_DATA_SEEDER=true` in local development)
 
-## Test Accounts
+## Test Accounts (Development Only)
+
+Only created when the backend development seeder is explicitly enabled (`ENABLE_DATA_SEEDER=true` or `local` Spring profile). **Never enable `DataSeeder` in production.**
 
 ### Student Account
 - **Email**: rahul.sharma@hostelhub.edu
 - **Password**: studentPass2026
 - **Role**: STUDENT
-- **Room**: 101, Bed A
+- **Room**: 204 (Block A)
 
 ### Warden Account
 - **Email**: warden.vance@hostelhub.edu
 - **Password**: wardenPass2026
 - **Role**: WARDEN
+
+### DGM Account
+- **Email**: dgm.director@hostelhub.edu
+- **Password**: dgmPass2026
+- **Role**: DGM
 
 ---
 
@@ -35,26 +42,25 @@ This guide provides step-by-step instructions for testing all features of the Ho
 ### 2. Student Dashboard
 1. After login, verify dashboard displays:
    - Welcome message with student name
-   - "My Room" card (Room 101)
+   - "My Room" card (Room 204)
    - "My Complaints" section
-   - Navigation sidebar with: Dashboard, My Room, Complaints, Profile
+   - Navigation sidebar with: Dashboard, My Room, Complaints, Notices, Feedback Survey, Profile
 
 ### 3. View Room Details
 1. Click "My Room" in sidebar
 2. **Expected**: 
-   - Room number: 101
+   - Room number: 204
    - Capacity: 3 beds
    - Current occupancy: 2/3
    - List of roommates (Aman Patel)
-   - Bed assignment: Bed A
 
 ### 4. Submit New Complaint
 1. Click "Complaints" → "New Complaint" button
 2. Fill form:
    - **Type**: Select "Room Maintenance"
    - **Priority**: Select "High"
-   - **Description**: "Broken ceiling fan in Room 101"
-3. Optionally upload a file (image or PDF)
+   - **Description**: "Broken ceiling fan in Room 204"
+3. Optionally upload a supported media file (`JPEG`, `PNG`, `WEBP`, `MP4`, `WEBM`, or `MOV`; up to `50 MB`)
 4. Click "Submit Complaint"
 5. **Expected**: 
    - Success message
@@ -245,8 +251,8 @@ curl -H "Authorization: Bearer fake.jwt.token" \
 2. **Expected**: 401 Unauthorized - "Invalid credentials"
 
 ### 28. File Upload Size Limit
-1. Try to upload file > 10MB with complaint
-2. **Expected**: 400 Bad Request - "File size exceeds limit"
+1. Try to upload a file > 50 MB with a complaint
+2. **Expected**: 400 Bad Request or 413 Payload Too Large - exceeds maximum allowed size
 
 ### 29. Missing Required Fields
 1. Try to create complaint without description
@@ -355,10 +361,12 @@ cd backend
 .\mvnw.cmd test
 ```
 
-### Frontend Tests
+### Frontend Tests, Type Check & Build
 ```bash
 cd frontend
-npm run test
+node --test src/utils/wardenForm.test.mjs
+npm run lint
+npm run build
 ```
 
 ### Build Verification
@@ -374,27 +382,26 @@ npm run build
 
 ---
 
-## Test Data Reset
+## Test Data Reset (Local Development Only)
 
-To reset database and reseed:
+To reset your **local** MySQL database and reseed development demo data:
 1. Stop backend server
-2. Drop database:
+2. Drop and recreate your local database:
 ```sql
 DROP DATABASE hostelsync;
 CREATE DATABASE hostelsync;
 ```
-3. Restart backend (auto-seeds)
+3. Restart backend with `-Dspring-boot.run.profiles=local` or `ENABLE_DATA_SEEDER=true` (auto-seeds local demo accounts). **Never run this against production.**
 
 ---
 
 ## Known Issues / Limitations
 
-1. **File Storage**: Files stored locally, not in cloud (for demo purposes)
-2. **Email Notifications**: Not implemented (stub only)
+1. **File Storage**: Local filesystem (`STORAGE_TYPE=local`) is used in development; production uses a private Supabase Storage bucket (`STORAGE_TYPE=supabase`).
+2. **Email Notifications**: Not implemented (in-app notifications only)
 3. **Password Reset**: Not implemented
-4. **Profile Picture Upload**: Not implemented
-5. **Complaint Comments**: Warden can add comment on status change only
-6. **Real-time Updates**: No WebSocket notifications (requires page refresh)
+4. **Supported Attachments**: Only `JPEG`, `PNG`, `WEBP`, `MP4`, `WEBM`, and `MOV` files up to `50 MB` are supported (PDFs are rejected).
+5. **Real-time Updates**: No WebSocket notifications (requires page refresh)
 
 ---
 

@@ -3,6 +3,7 @@ import { Mail, Phone, Award, Shield, Save } from 'lucide-react';
 import { Card } from '../../components/common/Card';
 import { Button } from '../../components/common/Button';
 import { Input } from '../../components/common/Input';
+import { ProtectedImage } from '../../components/common/ProtectedImage';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 
@@ -27,9 +28,10 @@ export const WardenProfile: React.FC = () => {
   return (
     <div className="max-w-3xl mx-auto space-y-6">
       <div className="flex items-center space-x-4">
-        <img
-          src={user?.avatar || 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&w=150&q=80'}
-          alt={user?.name}
+        <ProtectedImage
+          src={user?.avatar}
+          fallbackSrc="https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&w=150&q=80"
+          alt={user?.name || 'Warden'}
           className="w-16 h-16 rounded-full border-2 border-white shadow-md object-cover"
         />
         <div>

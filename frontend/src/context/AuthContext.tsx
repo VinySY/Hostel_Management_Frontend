@@ -7,7 +7,7 @@ interface AuthContextType {
   role: UserRole | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  login: (roleChoice: 'STUDENT' | 'WARDEN', credentials?: { email?: string; password?: string }) => Promise<void>;
+  login: (roleChoice: UserRole, credentials?: { email?: string; password?: string }) => Promise<void>;
   logout: () => void;
   switchRoleDemo: (role: UserRole) => Promise<void>;
 }
@@ -24,7 +24,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const savedToken = localStorage.getItem('hostelhub_token');
       if (savedUser && savedToken) {
         setUser(JSON.parse(savedUser));
-      } else if (!USE_REAL_BACKEND) {
+      } else if (import.meta.env.DEV && !USE_REAL_BACKEND) {
         // Default to student demo session for immediate preview readiness in mock mode only
         const defaultStudent = {
           id: 'usr-101',
@@ -46,7 +46,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     initializeAuth();
   }, []);
 
-  const login = async (roleChoice: 'STUDENT' | 'WARDEN', credentials?: { email?: string; password?: string }) => {
+  const login = async (roleChoice: UserRole, credentials?: { email?: string; password?: string }) => {
     setIsLoading(true);
     try {
       const response = await apiService.login(roleChoice, credentials);
@@ -65,7 +65,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const switchRoleDemo = async (newRole: UserRole) => {
-    await login(newRole === 'WARDEN' ? 'WARDEN' : 'STUDENT');
+    if (!import.meta.env.DEV || USE_REAL_BACKEND) {
+      // In real backend or production mode, role cannot be switched without real authentication
+      logout();
+      return;
+    }
+    await login(newRole);
   };
 
   return (

@@ -26,6 +26,14 @@ public class ComplaintResponse {
     private String priority;       // "Low" | "Medium" | "High" | "Urgent"
     private String status;         // "Submitted" | "Under Review" | ...
     private String adminNotes;
+    private String hostelId;
+    private String hostelName;
+    private Integer floor;
+    private boolean escalated;
+    private boolean slaBreached;
+    private String slaDeadline;
+    private String overdueAt;
+    private String escalatedAt;
     private List<AttachmentDto> attachments;
     private List<TimelineItemDto> timeline;
     private String createdAt;
@@ -74,6 +82,30 @@ public class ComplaintResponse {
 
     public String getAdminNotes() { return adminNotes; }
     public void setAdminNotes(String adminNotes) { this.adminNotes = adminNotes; }
+
+    public String getHostelId() { return hostelId; }
+    public void setHostelId(String hostelId) { this.hostelId = hostelId; }
+
+    public String getHostelName() { return hostelName; }
+    public void setHostelName(String hostelName) { this.hostelName = hostelName; }
+
+    public Integer getFloor() { return floor; }
+    public void setFloor(Integer floor) { this.floor = floor; }
+
+    public boolean isEscalated() { return escalated; }
+    public void setEscalated(boolean escalated) { this.escalated = escalated; }
+
+    public boolean isSlaBreached() { return slaBreached; }
+    public void setSlaBreached(boolean slaBreached) { this.slaBreached = slaBreached; }
+
+    public String getSlaDeadline() { return slaDeadline; }
+    public void setSlaDeadline(String slaDeadline) { this.slaDeadline = slaDeadline; }
+
+    public String getOverdueAt() { return overdueAt; }
+    public void setOverdueAt(String overdueAt) { this.overdueAt = overdueAt; }
+
+    public String getEscalatedAt() { return escalatedAt; }
+    public void setEscalatedAt(String escalatedAt) { this.escalatedAt = escalatedAt; }
 
     public List<AttachmentDto> getAttachments() { return attachments; }
     public void setAttachments(List<AttachmentDto> attachments) { this.attachments = attachments; }

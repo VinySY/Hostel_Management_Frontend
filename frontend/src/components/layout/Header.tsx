@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Bell, Menu, Search, Check } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import { ProtectedImage } from '../common/ProtectedImage';
 import { apiService } from '../../services/api';
 import { NotificationItem } from '../../types';
 
@@ -106,8 +107,9 @@ export const Header: React.FC<HeaderProps> = ({
           onClick={onNavigateProfile}
           className="flex items-center space-x-2 pl-2 border-l border-slate-200 cursor-pointer group"
         >
-          <img
-            src={user?.avatar || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=150&q=80'}
+          <ProtectedImage
+            src={user?.avatar}
+            fallbackSrc="https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=150&q=80"
             alt="User"
             className="w-8 h-8 rounded-full border border-slate-200 object-cover"
           />

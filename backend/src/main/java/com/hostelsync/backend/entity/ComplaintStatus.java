@@ -8,7 +8,8 @@ public enum ComplaintStatus {
     Under_Review,    // frontend: "Under Review"
     In_Progress,     // frontend: "In Progress"
     Resolved,
-    Rejected;
+    Rejected,
+    Overdue;         // Automatically applied when SLA deadline passes
 
     public String getDisplayName() {
         return this.name().replace('_', ' ');
@@ -22,6 +23,7 @@ public enum ComplaintStatus {
             case "In Progress"  -> In_Progress;
             case "Resolved"     -> Resolved;
             case "Rejected"     -> Rejected;
+            case "Overdue"      -> Overdue;
             default             -> Submitted;
         };
     }

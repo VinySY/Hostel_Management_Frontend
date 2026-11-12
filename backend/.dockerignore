@@ -1,0 +1,13 @@
+target/
+uploads/
+.git/
+.gitignore
+.idea/
+.vscode/
+*.iml
+*.log
+*.bak
+*.sql
+HELP.md
+src/main/resources/application-local.properties
+

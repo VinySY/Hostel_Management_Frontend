@@ -1,0 +1,19 @@
+package com.hostelsync.backend.entity;
+
+/**
+ * Types of notifications that can be sent to users.
+ */
+public enum NotificationType {
+    COMPLAINT_ASSIGNED,
+    COMPLAINT_REASSIGNED,
+    COMPLAINT_STATUS_CHANGED,
+    COMPLAINT_APPROACHING_DEADLINE,
+    COMPLAINT_OVERDUE,
+    COMPLAINT_ESCALATED,
+    COMPLAINT_REOPENED,
+    COMPLAINT_RESOLVED,
+    DGM_ACTION_TAKEN,
+    SLA_REMINDER,
+    ROOM_ALLOCATION_CHANGED,
+    SYSTEM_ANNOUNCEMENT
+}

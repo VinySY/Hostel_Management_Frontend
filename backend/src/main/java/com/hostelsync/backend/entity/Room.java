@@ -47,6 +47,14 @@ public class Room {
     @Column(nullable = false)
     private boolean active = true;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "cooling_equipment", nullable = false, length = 20)
+    private CoolingEquipmentType coolingEquipment = CoolingEquipmentType.NONE;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "cooling_maintenance_status", nullable = false, length = 30)
+    private CoolingMaintenanceStatus coolingMaintenanceStatus = CoolingMaintenanceStatus.OPERATIONAL;
+
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "hostel_id", nullable = false)
     private Hostel hostel;
@@ -57,6 +65,9 @@ public class Room {
     // Students currently assigned to this room (active ones)
     @OneToMany(mappedBy = "room", fetch = FetchType.LAZY)
     private List<Student> students = new ArrayList<>();
+
+    @OneToMany(mappedBy = "room", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<RoomFurniture> furniture = new ArrayList<>();
 
     @PrePersist
     protected void onCreate() {
@@ -73,6 +84,18 @@ public class Room {
         this.floor = floor;
         this.capacity = capacity;
         this.hostel = hostel;
+        this.coolingEquipment = CoolingEquipmentType.NONE;
+        this.coolingMaintenanceStatus = CoolingMaintenanceStatus.OPERATIONAL;
+    }
+
+    public Room(String roomNumber, String block, int floor, int capacity, Hostel hostel, CoolingEquipmentType coolingEquipment) {
+        this.roomNumber = roomNumber;
+        this.block = block;
+        this.floor = floor;
+        this.capacity = capacity;
+        this.hostel = hostel;
+        this.coolingEquipment = coolingEquipment != null ? coolingEquipment : CoolingEquipmentType.NONE;
+        this.coolingMaintenanceStatus = CoolingMaintenanceStatus.OPERATIONAL;
     }
 
     // -------- Getters & Setters --------
@@ -102,4 +125,17 @@ public class Room {
 
     public List<Student> getStudents() { return students; }
     public void setStudents(List<Student> students) { this.students = students; }
+
+    public CoolingEquipmentType getCoolingEquipment() { return coolingEquipment; }
+    public void setCoolingEquipment(CoolingEquipmentType coolingEquipment) {
+        this.coolingEquipment = coolingEquipment != null ? coolingEquipment : CoolingEquipmentType.NONE;
+    }
+
+    public CoolingMaintenanceStatus getCoolingMaintenanceStatus() { return coolingMaintenanceStatus; }
+    public void setCoolingMaintenanceStatus(CoolingMaintenanceStatus coolingMaintenanceStatus) {
+        this.coolingMaintenanceStatus = coolingMaintenanceStatus != null ? coolingMaintenanceStatus : CoolingMaintenanceStatus.OPERATIONAL;
+    }
+
+    public List<RoomFurniture> getFurniture() { return furniture; }
+    public void setFurniture(List<RoomFurniture> furniture) { this.furniture = furniture; }
 }

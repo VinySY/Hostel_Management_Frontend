@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { ArrowLeft, Clock, MapPin, User, FileText, ExternalLink } from 'lucide-react';
+import { ArrowLeft, Clock, MapPin, User } from 'lucide-react';
 import { Card } from '../../components/common/Card';
 import { Button } from '../../components/common/Button';
 import { StatusBadge } from '../../components/common/StatusBadge';
+import { ProtectedAttachmentCard } from '../../components/common/ProtectedAttachmentCard';
 import { apiService } from '../../services/api';
 import { Complaint } from '../../types';
 
@@ -90,25 +91,7 @@ export const ComplaintDetail: React.FC<ComplaintDetailProps> = ({
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {complaint.attachments.map((att) => (
-                  <div
-                    key={att.id}
-                    className="p-3 border border-slate-200 rounded-lg flex items-center justify-between bg-slate-50"
-                  >
-                    <div className="flex items-center space-x-2 truncate">
-                      <FileText className="w-4 h-4 text-blue-500 flex-shrink-0" />
-                      <span className="text-xs font-medium text-slate-700 truncate">{att.name}</span>
-                    </div>
-                    {att.url && (
-                      <a
-                        href={att.url}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="text-xs text-blue-600 hover:underline flex items-center ml-2 flex-shrink-0"
-                      >
-                        <ExternalLink className="w-3.5 h-3.5 mr-1" /> View
-                      </a>
-                    )}
-                  </div>
+                  <ProtectedAttachmentCard key={att.id} attachment={att} />
                 ))}
               </div>
             )}

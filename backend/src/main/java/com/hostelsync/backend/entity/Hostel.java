@@ -1,5 +1,6 @@
 package com.hostelsync.backend.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
@@ -28,10 +29,14 @@ public class Hostel {
     @Size(max = 300)
     private String address;
 
+    @Column(nullable = false)
+    private boolean active = true;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
     // One hostel has many rooms
+    @JsonIgnore
     @OneToMany(mappedBy = "hostel", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Room> rooms = new ArrayList<>();
 
@@ -47,6 +52,7 @@ public class Hostel {
     public Hostel(String name, String address) {
         this.name = name;
         this.address = address;
+        this.active = true;
     }
 
     // -------- Getters & Setters --------
@@ -59,6 +65,9 @@ public class Hostel {
 
     public String getAddress() { return address; }
     public void setAddress(String address) { this.address = address; }
+
+    public boolean isActive() { return active; }
+    public void setActive(boolean active) { this.active = active; }
 
     public LocalDateTime getCreatedAt() { return createdAt; }
 

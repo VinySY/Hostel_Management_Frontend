@@ -41,12 +41,14 @@ public class UserService {
      * Authenticates a user and returns a JWT + user info.
      */
     public LoginResponse login(LoginRequest request) {
+        String email = request.getEmail().trim();
+
         // Spring Security does the credential check; throws AuthenticationException on failure
         authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword())
+                new UsernamePasswordAuthenticationToken(email, request.getPassword())
         );
 
-        User user = userRepository.findByEmail(request.getEmail())
+        User user = userRepository.findByEmailIgnoreCase(email)
                 .orElseThrow(() -> new BadRequestException("User not found"));
 
         String token = jwtUtil.generateToken(user.getEmail());
@@ -77,6 +79,9 @@ public class UserService {
      * Does NOT create a Student profile — that is done separately.
      */
     public User createUser(String name, String email, String plainPassword, UserRole role) {
+        if (plainPassword == null || plainPassword.isBlank()) {
+            throw new BadRequestException("Password is required");
+        }
         if (userRepository.existsByEmail(email)) {
             throw new BadRequestException("A user with this email already exists: " + email);
         }

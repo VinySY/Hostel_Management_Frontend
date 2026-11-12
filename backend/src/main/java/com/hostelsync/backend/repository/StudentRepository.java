@@ -21,6 +21,8 @@ public interface StudentRepository extends JpaRepository<Student, Long> {
 
     Optional<Student> findByUserId(Long userId);
 
+    Optional<Student> findByUserEmail(String email);
+
     boolean existsByStudentId(String studentId);
 
     boolean existsByUserEmail(String email);
@@ -29,9 +31,16 @@ public interface StudentRepository extends JpaRepository<Student, Long> {
 
     List<Student> findByRoom(Room room);
 
+    @Query("SELECT s FROM Student s WHERE s.room.hostel.id = :hostelId AND s.status = :status")
+    List<Student> findByRoomHostelIdAndStatus(@Param("hostelId") Long hostelId, @Param("status") StudentStatus status);
+
     /** Count active students in a given room (for capacity enforcement) */
     @Query("SELECT COUNT(s) FROM Student s WHERE s.room = :room AND s.status = :status")
     long countByRoomAndStatus(@Param("room") Room room, @Param("status") StudentStatus status);
 
     long countByStatus(StudentStatus status);
+
+    @Query("SELECT COUNT(s) FROM Student s WHERE s.room.hostel.id = :hostelId AND s.status = :status")
+    long countByRoomHostelIdAndStatus(@Param("hostelId") Long hostelId, @Param("status") StudentStatus status);
 }
+

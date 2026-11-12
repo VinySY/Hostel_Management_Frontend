@@ -16,7 +16,9 @@ public class LoginRequest {
     private String password;
 
     public String getEmail() { return email; }
-    public void setEmail(String email) { this.email = email; }
+
+    /** Normalize pasted/autofilled emails before bean validation runs. */
+    public void setEmail(String email) { this.email = email == null ? null : email.trim(); }
 
     public String getPassword() { return password; }
     public void setPassword(String password) { this.password = password; }

@@ -23,6 +23,10 @@ public class StudentResponse {
     private String guardianName;
     private String guardianPhone;
     private String status;       // "Active" | "Inactive" | "Suspended"
+    private String avatarUrl;
+    private String hostelName;
+    private String hostelId;
+    private int floor;
 
     // ─── Getters & Setters ────────────────────────────────────────────────────
 
@@ -67,4 +71,16 @@ public class StudentResponse {
 
     public String getStatus() { return status; }
     public void setStatus(String status) { this.status = status; }
+
+    public String getAvatarUrl() { return avatarUrl; }
+    public void setAvatarUrl(String avatarUrl) { this.avatarUrl = avatarUrl; }
+
+    public String getHostelName() { return hostelName; }
+    public void setHostelName(String hostelName) { this.hostelName = hostelName; }
+
+    public String getHostelId() { return hostelId; }
+    public void setHostelId(String hostelId) { this.hostelId = hostelId; }
+
+    public int getFloor() { return floor; }
+    public void setFloor(int floor) { this.floor = floor; }
 }

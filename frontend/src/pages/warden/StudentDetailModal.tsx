@@ -3,6 +3,7 @@ import { Mail, Phone, User, Award, Home, Shield } from 'lucide-react';
 import { Modal } from '../../components/common/Modal';
 import { StatusBadge } from '../../components/common/StatusBadge';
 import { Button } from '../../components/common/Button';
+import { ProtectedImage } from '../../components/common/ProtectedImage';
 import { Student } from '../../types';
 
 interface StudentDetailModalProps {
@@ -25,8 +26,13 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
       <div className="space-y-4">
         {/* Header summary */}
         <div className="flex items-center space-x-3 pb-3 border-b border-slate-100">
-          <div className="w-12 h-12 rounded-full bg-blue-100 text-blue-600 font-bold flex items-center justify-center text-lg">
-            {student.name.charAt(0)}
+          <div className="w-12 h-12 rounded-full overflow-hidden bg-blue-100 text-blue-600 font-bold flex items-center justify-center text-lg border border-slate-200">
+            <ProtectedImage
+              src={student.avatarUrl}
+              alt={student.name}
+              className="w-full h-full object-cover"
+              fallbackNode={<span>{student.name.charAt(0)}</span>}
+            />
           </div>
           <div>
             <div className="flex items-center space-x-2">

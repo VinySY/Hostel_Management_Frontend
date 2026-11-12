@@ -1,5 +1,7 @@
 package com.hostelsync.backend.dto;
 
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.Size;
 
 /**
@@ -20,6 +22,8 @@ public class StudentUpdateRequest {
     @Size(max = 150)
     private String course;
 
+    @Min(value = 1, message = "Academic year must be between 1 and 6")
+    @Max(value = 6, message = "Academic year must be between 1 and 6")
     private Integer year;
 
     private Long roomId;
@@ -32,6 +36,8 @@ public class StudentUpdateRequest {
 
     @Size(max = 10)
     private String gender;
+
+    private String avatarUrl;
 
     // ─── Getters & Setters ────────────────────────────────────────────────────
 
@@ -61,4 +67,7 @@ public class StudentUpdateRequest {
 
     public String getGender() { return gender; }
     public void setGender(String gender) { this.gender = gender; }
+
+    public String getAvatarUrl() { return avatarUrl; }
+    public void setAvatarUrl(String avatarUrl) { this.avatarUrl = avatarUrl; }
 }

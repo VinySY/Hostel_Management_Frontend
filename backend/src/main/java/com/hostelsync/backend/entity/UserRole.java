@@ -5,5 +5,6 @@ package com.hostelsync.backend.entity;
  */
 public enum UserRole {
     STUDENT,
-    WARDEN
+    WARDEN,
+    DGM
 }

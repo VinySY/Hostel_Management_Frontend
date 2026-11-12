@@ -9,6 +9,7 @@ import com.hostelsync.backend.exception.ForbiddenException;
 import com.hostelsync.backend.exception.ResourceNotFoundException;
 import com.hostelsync.backend.repository.ComplaintAttachmentRepository;
 import com.hostelsync.backend.repository.ComplaintRepository;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -25,21 +26,41 @@ public class ComplaintService {
     private final ComplaintAttachmentRepository attachmentRepository;
     private final FileStorageService fileStorageService;
     private final MappingService mappingService;
+    private final NotificationService notificationService;
+    private final AuditService auditService;
 
-    /** Base URL for file download links, e.g. http://localhost:8080/api/files */
+    /** Configurable base path/URL for file download links, defaulting to relative "/api/files" */
     private final String fileBaseUrl;
 
+    @Autowired
     public ComplaintService(ComplaintRepository complaintRepository,
                             ComplaintAttachmentRepository attachmentRepository,
                             FileStorageService fileStorageService,
                             MappingService mappingService,
-                            @Value("${app.cors.allowed-origins:http://localhost:*,http://127.0.0.1:*,http://10.*:*,http://192.168.*:*,http://172.*:*,http://localhost:3000,http://localhost:3001,http://127.0.0.1:3000,http://127.0.0.1:3001,http://10.200.50.197:3000,http://10.200.50.197:3001,http://10.63.156.120:3000,http://10.63.156.120:3001}") String origins,
-                            @Value("${server.port:8080}") int port) {
+                            NotificationService notificationService,
+                            AuditService auditService,
+                            @Value("${app.file-base-url:/api/files}") String fileBaseUrl) {
         this.complaintRepository = complaintRepository;
         this.attachmentRepository = attachmentRepository;
         this.fileStorageService = fileStorageService;
         this.mappingService = mappingService;
-        this.fileBaseUrl = "http://localhost:" + port + "/api/files";
+        this.notificationService = notificationService;
+        this.auditService = auditService;
+        String resolved = (fileBaseUrl == null || fileBaseUrl.isBlank()) ? "/api/files" : fileBaseUrl.trim();
+        this.fileBaseUrl = resolved.replaceAll("/+$", "");
+    }
+
+    /** Legacy constructor preserved for unit tests */
+    public ComplaintService(ComplaintRepository complaintRepository,
+                            ComplaintAttachmentRepository attachmentRepository,
+                            FileStorageService fileStorageService,
+                            MappingService mappingService,
+                            NotificationService notificationService,
+                            AuditService auditService,
+                            String origins,
+                            int port) {
+        this(complaintRepository, attachmentRepository, fileStorageService,
+                mappingService, notificationService, auditService, "/api/files");
     }
 
     // ─── Create ───────────────────────────────────────────────────────────────
@@ -160,6 +181,22 @@ public class ComplaintService {
 
         if (newStatus == ComplaintStatus.Resolved) {
             complaint.setResolvedAt(LocalDateTime.now());
+            if (complaint.getStudent() != null && complaint.getStudent().getUser() != null) {
+                notificationService.notifyComplaintResolved(
+                    complaint.getStudent().getUser().getId(),
+                    complaint.getId(),
+                    complaint.getComplaintNumber()
+                );
+            }
+        } else {
+            if (complaint.getStudent() != null && complaint.getStudent().getUser() != null) {
+                notificationService.notifyComplaintStatusChanged(
+                    complaint.getStudent().getUser().getId(),
+                    complaint.getId(),
+                    complaint.getComplaintNumber(),
+                    newStatus.getDisplayName()
+                );
+            }
         }
 
         // Add timeline entry
@@ -169,6 +206,59 @@ public class ComplaintService {
         complaint.getTimeline().add(new ComplaintTimeline(complaint, newStatus, note));
 
         complaint = complaintRepository.save(complaint);
+        return mappingService.toComplaintResponse(complaint, fileBaseUrl);
+    }
+
+    // ─── Reopen complaint (student only) ────────────────────────────────────
+
+    public ComplaintResponse reopenComplaint(Long id, Long studentUserId, String reason) {
+        Complaint complaint = findEntityById(id);
+
+        // Check student ownership
+        if (!complaint.getStudent().getUser().getId().equals(studentUserId)) {
+            throw new ForbiddenException("You may only reopen your own complaints");
+        }
+
+        // Prevent reopening already reopened complaints
+        if (complaint.isReopened()) {
+            throw new BadRequestException("Complaint is already reopened");
+        }
+
+        // Validate complaint is eligible for reopening
+        if (complaint.getStatus() != ComplaintStatus.Resolved && complaint.getStatus() != ComplaintStatus.Rejected) {
+            throw new BadRequestException("Complaint can only be reopened if it is Resolved or Rejected");
+        }
+
+        // Update complaint status and reopening fields
+        complaint.setStatus(ComplaintStatus.Under_Review);
+        complaint.setReopened(true);
+        complaint.setReopenedAt(LocalDateTime.now());
+        complaint.setReopenCount(complaint.getReopenCount() + 1);
+
+        // Add timeline entry
+        String timelineNote = reason != null && !reason.isBlank()
+                ? "Reopened by student: " + reason
+                : "Complaint reopened by student";
+        complaint.getTimeline().add(new ComplaintTimeline(complaint, ComplaintStatus.Under_Review, timelineNote));
+
+        complaint = complaintRepository.save(complaint);
+
+        // Create audit log entry
+        auditService.logComplaintReopening(
+                complaint.getId(),
+                complaint.getStudent().getUser(),
+                reason != null ? reason : "No reason provided"
+        );
+
+        // Notify assigned warden (if any)
+        if (complaint.getAssignedWarden() != null) {
+            notificationService.notifyComplaintReopened(
+                    complaint.getAssignedWarden().getUser().getId(),
+                    complaint.getId(),
+                    complaint.getComplaintNumber()
+            );
+        }
+
         return mappingService.toComplaintResponse(complaint, fileBaseUrl);
     }
 

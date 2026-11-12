@@ -12,30 +12,50 @@ import { StudentComplaints } from './pages/student/StudentComplaints';
 import { ComplaintNew } from './pages/student/ComplaintNew';
 import { ComplaintDetail } from './pages/student/ComplaintDetail';
 import { StudentProfile } from './pages/student/StudentProfile';
+import { StudentNotices } from './pages/student/StudentNotices';
+import { StudentSurveys } from './pages/student/StudentSurveys';
 
 // Warden views
 import { WardenDashboard } from './pages/warden/WardenDashboard';
 import { StudentList } from './pages/warden/StudentList';
 import { RoomList } from './pages/warden/RoomList';
 import { WardenComplaints } from './pages/warden/WardenComplaints';
+import { WardenTasks } from './pages/warden/WardenTasks';
+import { WardenNotices } from './pages/warden/WardenNotices';
 import { WardenProfile } from './pages/warden/WardenProfile';
+
+// DGM views
+import { DgmDashboard } from './pages/dgm/DgmDashboard';
+import { DgmEscalations } from './pages/dgm/DgmEscalations';
+import { DgmOverdue } from './pages/dgm/DgmOverdue';
+import { DgmHostels } from './pages/dgm/DgmHostels';
+import { DgmWardens } from './pages/dgm/DgmWardens';
+import { DgmSurveys } from './pages/dgm/DgmSurveys';
+import { DgmProfile } from './pages/dgm/DgmProfile';
+
+/** Returns the default landing tab for each role. */
+const defaultTab = (role: string | null): string => {
+  if (role === 'WARDEN') return 'warden-dashboard';
+  if (role === 'DGM') return 'dgm-dashboard';
+  return 'student-dashboard';
+};
 
 const MainLayout: React.FC = () => {
   const { isAuthenticated, role } = useAuth();
-  const [currentTab, setCurrentTab] = useState<string>(
-    role === 'WARDEN' ? 'warden-dashboard' : 'student-dashboard'
-  );
+  const [currentTab, setCurrentTab] = useState<string>(defaultTab(role));
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
   const [activeComplaintId, setActiveComplaintId] = useState<string | null>(null);
 
-  // Sync tab if user switches role
+  // Sync tab when role changes (e.g. after login or demo switch)
   React.useEffect(() => {
     if (role === 'WARDEN' && !currentTab.startsWith('warden-')) {
       setCurrentTab('warden-dashboard');
     } else if (role === 'STUDENT' && !currentTab.startsWith('student-')) {
       setCurrentTab('student-dashboard');
+    } else if (role === 'DGM' && !currentTab.startsWith('dgm-')) {
+      setCurrentTab('dgm-dashboard');
     }
-  }, [role, currentTab]);
+  }, [role]); // intentionally omit currentTab to avoid loop
 
   if (!isAuthenticated) {
     return <LoginPage />;
@@ -43,36 +63,40 @@ const MainLayout: React.FC = () => {
 
   const getPageTitle = () => {
     switch (currentTab) {
-      case 'student-dashboard':
-        return 'Student Resident Dashboard';
-      case 'student-room':
-        return 'My Room Allocation';
-      case 'student-complaints':
-        return 'Complaints & Requests';
-      case 'student-complaint-new':
-        return 'Submit Maintenance Complaint';
-      case 'student-complaint-detail':
-        return 'Complaint Ticket Details';
-      case 'student-profile':
-        return 'Resident Profile';
+      // Student
+      case 'student-dashboard':       return 'Student Resident Dashboard';
+      case 'student-room':            return 'My Room Allocation';
+      case 'student-complaints':      return 'Complaints & Requests';
+      case 'student-complaint-new':   return 'Submit Maintenance Complaint';
+      case 'student-complaint-detail': return 'Complaint Ticket Details';
+      case 'student-notices':         return 'Hostel Notices & Announcements';
+      case 'student-surveys':         return 'Student Feedback Survey';
+      case 'student-profile':         return 'Resident Profile';
 
-      case 'warden-dashboard':
-        return 'Hostel Administration Dashboard';
-      case 'warden-students':
-        return 'Resident Students Roster';
-      case 'warden-rooms':
-        return 'Room Inventory & Occupancy';
-      case 'warden-complaints':
-        return 'Complaints & Maintenance Desk';
-      case 'warden-profile':
-        return 'Warden Official Profile';
-      default:
-        return 'HostelHub';
+      // Warden
+      case 'warden-dashboard':        return 'Hostel Administration Dashboard';
+      case 'warden-students':         return 'Resident Students Roster';
+      case 'warden-rooms':            return 'Room Inventory & Occupancy';
+      case 'warden-complaints':       return 'Complaints & Maintenance Desk';
+      case 'warden-tasks':            return 'Feedback Action Tasks';
+      case 'warden-notices':          return 'Publish Hostel Notices';
+      case 'warden-profile':          return 'Warden Official Profile';
+
+      // DGM
+      case 'dgm-dashboard':           return 'DGM Overview Dashboard';
+      case 'dgm-escalations':         return 'Escalation Management';
+      case 'dgm-overdue':             return 'Overdue Complaints & Accountability';
+      case 'dgm-hostels':             return 'Campus Hostels Management';
+      case 'dgm-wardens':             return 'Warden Administration & Floors';
+      case 'dgm-surveys':             return 'Quality Surveys & Analytics';
+      case 'dgm-profile':             return 'DGM Profile';
+
+      default: return 'HostelHub';
     }
   };
 
   const renderContent = () => {
-    // Student Routes
+    // ─── Student Routes ───────────────────────────────────────────
     if (role === 'STUDENT') {
       switch (currentTab) {
         case 'student-dashboard':
@@ -113,6 +137,10 @@ const MainLayout: React.FC = () => {
               onBack={() => setCurrentTab('student-complaints')}
             />
           );
+        case 'student-notices':
+          return <StudentNotices />;
+        case 'student-surveys':
+          return <StudentSurveys />;
         case 'student-profile':
           return <StudentProfile />;
         default:
@@ -124,7 +152,7 @@ const MainLayout: React.FC = () => {
       }
     }
 
-    // Warden Routes
+    // ─── Warden Routes ────────────────────────────────────────────
     if (role === 'WARDEN') {
       switch (currentTab) {
         case 'warden-dashboard':
@@ -142,11 +170,45 @@ const MainLayout: React.FC = () => {
           return <RoomList />;
         case 'warden-complaints':
           return <WardenComplaints initialComplaintId={activeComplaintId} />;
+        case 'warden-tasks':
+          return <WardenTasks />;
+        case 'warden-notices':
+          return <WardenNotices />;
         case 'warden-profile':
           return <WardenProfile />;
         default:
           return (
             <WardenDashboard
+              onNavigate={(tab) => setCurrentTab(tab)}
+            />
+          );
+      }
+    }
+
+    // ─── DGM Routes ───────────────────────────────────────────────
+    if (role === 'DGM') {
+      switch (currentTab) {
+        case 'dgm-dashboard':
+          return (
+            <DgmDashboard
+              onNavigate={(tab) => setCurrentTab(tab)}
+            />
+          );
+        case 'dgm-escalations':
+          return <DgmEscalations />;
+        case 'dgm-overdue':
+          return <DgmOverdue />;
+        case 'dgm-hostels':
+          return <DgmHostels />;
+        case 'dgm-wardens':
+          return <DgmWardens />;
+        case 'dgm-surveys':
+          return <DgmSurveys />;
+        case 'dgm-profile':
+          return <DgmProfile />;
+        default:
+          return (
+            <DgmDashboard
               onNavigate={(tab) => setCurrentTab(tab)}
             />
           );
@@ -175,7 +237,9 @@ const MainLayout: React.FC = () => {
           pageTitle={getPageTitle()}
           onOpenMobileMenu={() => setIsMobileNavOpen(true)}
           onNavigateProfile={() => {
-            setCurrentTab(role === 'WARDEN' ? 'warden-profile' : 'student-profile');
+            if (role === 'WARDEN') setCurrentTab('warden-profile');
+            else if (role === 'DGM') setCurrentTab('dgm-profile');
+            else setCurrentTab('student-profile');
           }}
         />
 

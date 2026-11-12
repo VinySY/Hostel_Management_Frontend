@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Clock, MapPin, User, FileText, ExternalLink, Save } from 'lucide-react';
+import { Clock, MapPin, User, Save } from 'lucide-react';
 import { Modal } from '../../components/common/Modal';
 import { Button } from '../../components/common/Button';
 import { Select } from '../../components/common/Select';
 import { StatusBadge } from '../../components/common/StatusBadge';
+import { ProtectedAttachmentCard } from '../../components/common/ProtectedAttachmentCard';
 import { Complaint, ComplaintPriority, ComplaintStatus } from '../../types';
 
 interface WardenComplaintDetailModalProps {
@@ -103,25 +104,7 @@ export const WardenComplaintDetailModal: React.FC<WardenComplaintDetailModalProp
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                 {complaint.attachments.map((att) => (
-                  <div
-                    key={att.id}
-                    className="p-2.5 rounded-lg border border-slate-200 flex items-center justify-between bg-white text-xs"
-                  >
-                    <div className="flex items-center space-x-2 truncate">
-                      <FileText className="w-4 h-4 text-blue-500 flex-shrink-0" />
-                      <span className="font-medium text-slate-800 truncate">{att.name}</span>
-                    </div>
-                    {att.url && (
-                      <a
-                        href={att.url}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="text-blue-600 hover:underline flex items-center ml-2 flex-shrink-0"
-                      >
-                        <ExternalLink className="w-3 h-3 mr-1" /> View
-                      </a>
-                    )}
-                  </div>
+                  <ProtectedAttachmentCard key={att.id} attachment={att} compact />
                 ))}
               </div>
             )}

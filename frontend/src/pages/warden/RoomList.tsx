@@ -1,9 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { Search, Eye } from 'lucide-react';
+import { Search, Eye, Plus, Wind, AlertCircle } from 'lucide-react';
 import { Card } from '../../components/common/Card';
 import { StatusBadge } from '../../components/common/StatusBadge';
 import { EmptyState } from '../../components/common/EmptyState';
+import { Button } from '../../components/common/Button';
 import { RoomDetailModal } from './RoomDetailModal';
+import { RoomFormModal } from './RoomFormModal';
 import { apiService } from '../../services/api';
 import { Room } from '../../types';
 
@@ -13,14 +15,28 @@ export const RoomList: React.FC = () => {
   const [blockFilter, setBlockFilter] = useState('ALL');
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [selectedRoom, setSelectedRoom] = useState<Room | null>(null);
+  const [isAddRoomOpen, setIsAddRoomOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
+  const fetchRooms = () => {
+    setIsLoading(true);
     apiService.getRooms().then((res) => {
       setRooms(res);
       setIsLoading(false);
+    }).catch(() => {
+      setIsLoading(false);
     });
+  };
+
+  useEffect(() => {
+    fetchRooms();
   }, []);
+
+  const handleCreateRoom = async (data: any) => {
+    await apiService.createRoom(data);
+    setIsAddRoomOpen(false);
+    fetchRooms();
+  };
 
   const filtered = rooms.filter((r) => {
     const matchesSearch =
@@ -33,11 +49,21 @@ export const RoomList: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-xl font-bold text-slate-900">Hostel Rooms & Inventory</h2>
-        <p className="text-xs text-slate-500 mt-0.5">
-          Monitor room occupancies, bed allocations, and resident room associations
-        </p>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h2 className="text-xl font-bold text-slate-900">Hostel Rooms & Inventory</h2>
+          <p className="text-xs text-slate-500 mt-0.5">
+            Monitor room occupancies, bed allocations, cooling units, and furniture inventory
+          </p>
+        </div>
+        <Button
+          variant="primary"
+          icon={<Plus className="w-4 h-4" />}
+          onClick={() => setIsAddRoomOpen(true)}
+          className="text-xs"
+        >
+          Add Room
+        </Button>
       </div>
 
       {/* Filter bar */}
@@ -88,13 +114,19 @@ export const RoomList: React.FC = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {filtered.map((room) => {
             const occupancyPct = Math.round((room.occupied / room.capacity) * 100);
+            const hasShortageOrDamage =
+              Boolean(room.hasShortage || room.hasMaintenanceIssues) ||
+              (room.furnitureInventory?.some(
+                (f) => f.shortage > 0 || f.damagedCount > 0 || f.underRepairCount > 0
+              ) ?? false);
+
             return (
               <Card
                 key={room.id}
-                className="hover:border-blue-300 transition-all hover:shadow-md cursor-pointer"
+                className="hover:border-blue-300 transition-all hover:shadow-md cursor-pointer relative"
                 onClick={() => setSelectedRoom(room)}
               >
-                <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center justify-between mb-2">
                   <div>
                     <h3 className="text-base font-bold text-slate-900">
                       Room {room.roomNumber}
@@ -103,11 +135,30 @@ export const RoomList: React.FC = () => {
                       {room.block} • Floor {room.floor}
                     </p>
                   </div>
-                  <StatusBadge status={room.status} size="sm" />
+                  <div className="flex items-center gap-1.5">
+                    {room.coolingEquipment && room.coolingEquipment !== 'NONE' && (
+                      <span className={`px-2 py-0.5 rounded text-[10px] font-semibold flex items-center gap-1 ${
+                        room.coolingEquipment === 'AC' 
+                          ? 'bg-cyan-50 text-cyan-700 border border-cyan-200' 
+                          : 'bg-amber-50 text-amber-700 border border-amber-200'
+                      }`}>
+                        <Wind className="w-3 h-3" />
+                        {room.coolingEquipment}
+                      </span>
+                    )}
+                    <StatusBadge status={room.status} size="sm" />
+                  </div>
                 </div>
 
+                {hasShortageOrDamage && (
+                  <div className="mb-2 px-2 py-1 bg-amber-50 border border-amber-200 rounded flex items-center gap-1.5 text-[11px] text-amber-800">
+                    <AlertCircle className="w-3.5 h-3.5 text-amber-600 flex-shrink-0" />
+                    <span className="font-medium truncate">Furniture shortage / repairs reported</span>
+                  </div>
+                )}
+
                 {/* Occupancy Indicator */}
-                <div className="space-y-1 mb-4">
+                <div className="space-y-1 mb-3">
                   <div className="flex justify-between text-xs">
                     <span className="text-slate-500">Beds Occupied</span>
                     <span className="font-semibold text-slate-800">
@@ -129,14 +180,14 @@ export const RoomList: React.FC = () => {
                 </div>
 
                 {/* Occupants Preview */}
-                <div className="border-t border-slate-100 pt-3">
-                  <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block mb-2">
+                <div className="border-t border-slate-100 pt-2.5">
+                  <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block mb-1.5">
                     Residents ({room.occupants.length})
                   </span>
                   {room.occupants.length === 0 ? (
                     <p className="text-xs text-emerald-600 font-medium italic">Empty room available</p>
                   ) : (
-                    <div className="space-y-1.5">
+                    <div className="space-y-1">
                       {room.occupants.map((occ) => (
                         <div key={occ.studentId} className="flex justify-between text-xs">
                           <span className="font-medium text-slate-700 truncate mr-2">{occ.name}</span>
@@ -149,8 +200,8 @@ export const RoomList: React.FC = () => {
                   )}
                 </div>
 
-                <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-blue-600 font-medium">
-                  <span>View Details</span>
+                <div className="mt-3 pt-2.5 border-t border-slate-100 flex items-center justify-between text-xs text-blue-600 font-medium">
+                  <span>Manage Room & Inventory</span>
                   <Eye className="w-4 h-4" />
                 </div>
               </Card>
@@ -159,10 +210,22 @@ export const RoomList: React.FC = () => {
         </div>
       )}
 
-      <RoomDetailModal
-        isOpen={!!selectedRoom}
-        onClose={() => setSelectedRoom(null)}
-        room={selectedRoom}
+      {selectedRoom && (
+        <RoomDetailModal
+          isOpen={!!selectedRoom}
+          onClose={() => setSelectedRoom(null)}
+          room={selectedRoom}
+          onRoomUpdated={() => {
+            setSelectedRoom(null);
+            fetchRooms();
+          }}
+        />
+      )}
+
+      <RoomFormModal
+        isOpen={isAddRoomOpen}
+        onClose={() => setIsAddRoomOpen(false)}
+        onSave={handleCreateRoom}
       />
     </div>
   );

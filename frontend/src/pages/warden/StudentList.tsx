@@ -5,6 +5,7 @@ import { Button } from '../../components/common/Button';
 import { StatusBadge } from '../../components/common/StatusBadge';
 import { ConfirmDialog } from '../../components/common/ConfirmDialog';
 import { EmptyState } from '../../components/common/EmptyState';
+import { ProtectedImage } from '../../components/common/ProtectedImage';
 import { StudentFormModal } from './StudentFormModal';
 import { StudentDetailModal } from './StudentDetailModal';
 import { apiService } from '../../services/api';
@@ -41,18 +42,19 @@ export const StudentList: React.FC = () => {
     fetchStudents();
   }, []);
 
-  const handleSaveStudent = async (studentData: Partial<Student>) => {
+  const handleSaveStudent = async (studentData: Partial<Student> & { password?: string }) => {
     try {
       if (studentToEdit) {
         await apiService.updateStudent(studentToEdit.id, studentData);
         showToast(`Student record for ${studentData.name} updated`, 'success');
       } else {
-        await apiService.createStudent(studentData as Omit<Student, 'id'>);
+        await apiService.createStudent(studentData as Omit<Student, 'id'> & { password?: string });
         showToast(`New resident ${studentData.name} registered`, 'success');
       }
       fetchStudents();
-    } catch {
-      showToast('Error saving student record', 'error');
+    } catch (err: any) {
+      showToast(err?.message || 'Error saving student record', 'error');
+      throw err;
     }
   };
 
@@ -163,8 +165,20 @@ export const StudentList: React.FC = () => {
                       {s.studentId}
                     </td>
                     <td className="py-3.5 px-4">
-                      <p className="font-semibold text-slate-900">{s.name}</p>
-                      <p className="text-[11px] text-slate-400">{s.email}</p>
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-8 h-8 rounded-full overflow-hidden bg-slate-100 border border-slate-200 flex-shrink-0 flex items-center justify-center font-semibold text-slate-600 text-xs">
+                          <ProtectedImage
+                            src={s.avatarUrl}
+                            alt={s.name}
+                            className="w-full h-full object-cover"
+                            fallbackNode={<span>{s.name.charAt(0)}</span>}
+                          />
+                        </div>
+                        <div>
+                          <p className="font-semibold text-slate-900">{s.name}</p>
+                          <p className="text-[11px] text-slate-400">{s.email}</p>
+                        </div>
+                      </div>
                     </td>
                     <td className="py-3.5 px-4 text-slate-700">
                       {s.course} <span className="text-slate-400">· Yr {s.year}</span>
