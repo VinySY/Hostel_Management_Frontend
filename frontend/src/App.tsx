@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
+import { Eye } from 'lucide-react';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { DEMO_READ_ONLY_NOTICE } from './utils/demoAuth';
 import { ToastProvider } from './context/ToastContext';
 import { LoginPage } from './pages/Login/LoginPage';
 import { Sidebar } from './components/layout/Sidebar';
@@ -41,7 +43,7 @@ const defaultTab = (role: string | null): string => {
 };
 
 const MainLayout: React.FC = () => {
-  const { isAuthenticated, role } = useAuth();
+  const { isAuthenticated, isDemo, role, logout } = useAuth();
   const [currentTab, setCurrentTab] = useState<string>(defaultTab(role));
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
   const [activeComplaintId, setActiveComplaintId] = useState<string | null>(null);
@@ -242,6 +244,28 @@ const MainLayout: React.FC = () => {
             else setCurrentTab('student-profile');
           }}
         />
+
+        {isDemo && (
+          <div
+            role="status"
+            className="bg-amber-50 border-b border-amber-200 px-4 sm:px-6 lg:px-8 py-2.5 text-xs text-amber-900 flex flex-wrap items-center justify-between gap-2"
+          >
+            <div className="flex items-center space-x-2">
+              <Eye className="w-4 h-4 text-amber-700 shrink-0" />
+              <span>
+                <strong className="font-semibold">Read-Only Demo Mode ({role})</strong> —{' '}
+                {DEMO_READ_ONLY_NOTICE.replace(/^Read-Only Demo Mode:\s*/i, '')}
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={logout}
+              className="text-xs font-semibold text-amber-900 underline hover:text-amber-700 cursor-pointer"
+            >
+              Exit Demo
+            </button>
+          </div>
+        )}
 
         <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto">
           {renderContent()}

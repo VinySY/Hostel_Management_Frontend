@@ -8,6 +8,7 @@ import com.hostelsync.backend.entity.*;
 import com.hostelsync.backend.exception.BadRequestException;
 import com.hostelsync.backend.exception.ResourceNotFoundException;
 import com.hostelsync.backend.repository.*;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -25,6 +26,7 @@ public class DgmWardenService {
     private final ComplaintRepository complaintRepository;
     private final PasswordEncoder passwordEncoder;
     private final AuditService auditService;
+    private DemoScopeService demoScopeService;
 
     public DgmWardenService(WardenRepository wardenRepository,
                            WardenFloorAssignmentRepository floorAssignmentRepository,
@@ -42,11 +44,37 @@ public class DgmWardenService {
         this.auditService = auditService;
     }
 
+    @Autowired(required = false)
+    public void setDemoScopeService(DemoScopeService demoScopeService) {
+        this.demoScopeService = demoScopeService;
+    }
+
     @Transactional(readOnly = true)
     public List<WardenResponse> getAllWardens(Long hostelId) {
+        if (demoScopeService != null && demoScopeService.isCurrentCallerDemo()) {
+            Long demoHostelId = demoScopeService.requireDemoHostelId();
+            if (hostelId != null) {
+                demoScopeService.assertDemoHostelAccess(hostelId);
+            }
+            return wardenRepository.findByHostelId(demoHostelId)
+                    .stream()
+                    .map(this::toWardenResponse)
+                    .toList();
+        }
+
+        if (demoScopeService != null && hostelId != null) {
+            demoScopeService.assertDemoHostelAccess(hostelId);
+        }
+
         List<Warden> wardens = (hostelId != null)
                 ? wardenRepository.findByHostelId(hostelId)
                 : wardenRepository.findAll();
+
+        if (demoScopeService != null) {
+            wardens = wardens.stream()
+                    .filter(demoScopeService::isWardenAccessible)
+                    .toList();
+        }
 
         return wardens.stream().map(this::toWardenResponse).toList();
     }
@@ -55,10 +83,17 @@ public class DgmWardenService {
     public WardenResponse getWardenById(Long id) {
         Warden warden = wardenRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Warden", id));
+        if (demoScopeService != null) {
+            demoScopeService.assertWardenAccessible(warden);
+        }
         return toWardenResponse(warden);
     }
 
     public WardenResponse createWarden(WardenCreateRequest request, String initiatedBy) {
+        if (demoScopeService != null) {
+            demoScopeService.assertNotDemoEmail(request.getEmail());
+            demoScopeService.assertDemoHostelAccess(request.getHostelId());
+        }
         if (request.getPassword() == null || request.getPassword().isBlank()) {
             throw new BadRequestException("Password is required");
         }
@@ -105,6 +140,12 @@ public class DgmWardenService {
     public WardenResponse updateWarden(Long id, WardenUpdateRequest request, String initiatedBy) {
         Warden warden = wardenRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Warden", id));
+        if (demoScopeService != null) {
+            demoScopeService.assertWardenAccessible(warden);
+            if (request.getHostelId() != null) {
+                demoScopeService.assertDemoHostelAccess(request.getHostelId());
+            }
+        }
 
         User user = warden.getUser();
         if (request.getName() != null && !request.getName().isBlank()) {
@@ -151,6 +192,10 @@ public class DgmWardenService {
     public WardenResponse assignFloors(Long id, WardenFloorAssignRequest request, String initiatedBy) {
         Warden warden = wardenRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Warden", id));
+        if (demoScopeService != null) {
+            demoScopeService.assertWardenAccessible(warden);
+            demoScopeService.assertDemoHostelAccess(request.getHostelId());
+        }
 
         Hostel hostel = hostelRepository.findById(request.getHostelId())
                 .orElseThrow(() -> new ResourceNotFoundException("Hostel", request.getHostelId()));
@@ -176,6 +221,9 @@ public class DgmWardenService {
     public WardenResponse toggleWardenStatus(Long id, boolean active, String initiatedBy) {
         Warden warden = wardenRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Warden", id));
+        if (demoScopeService != null) {
+            demoScopeService.assertWardenAccessible(warden);
+        }
 
         warden.setActive(active);
         warden = wardenRepository.save(warden);

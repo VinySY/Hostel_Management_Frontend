@@ -5,6 +5,7 @@ import com.hostelsync.backend.entity.*;
 import com.hostelsync.backend.exception.BadRequestException;
 import com.hostelsync.backend.exception.ResourceNotFoundException;
 import com.hostelsync.backend.repository.*;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -20,6 +21,7 @@ public class RoomService {
     private final RoomFurnitureRepository roomFurnitureRepository;
     private final RoomFurnitureHistoryRepository roomFurnitureHistoryRepository;
     private final MappingService mappingService;
+    private DemoScopeService demoScopeService;
 
     public RoomService(RoomRepository roomRepository,
                        StudentRepository studentRepository,
@@ -35,11 +37,26 @@ public class RoomService {
         this.mappingService = mappingService;
     }
 
+    @Autowired(required = false)
+    public void setDemoScopeService(DemoScopeService demoScopeService) {
+        this.demoScopeService = demoScopeService;
+    }
+
     /** All rooms */
     @Transactional(readOnly = true)
     public List<RoomResponse> getAllRooms() {
-        return roomRepository.findAll()
-                .stream()
+        List<Room> rooms;
+        if (demoScopeService != null && demoScopeService.isCurrentCallerDemo()) {
+            rooms = roomRepository.findByHostelId(demoScopeService.requireDemoHostelId());
+        } else {
+            rooms = roomRepository.findAll();
+            if (demoScopeService != null) {
+                rooms = rooms.stream()
+                        .filter(demoScopeService::isRoomAccessible)
+                        .toList();
+            }
+        }
+        return rooms.stream()
                 .map(mappingService::toRoomResponse)
                 .toList();
     }
@@ -49,14 +66,22 @@ public class RoomService {
     public RoomResponse getRoomById(Long id) {
         Room room = roomRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Room", id));
+        if (demoScopeService != null) {
+            demoScopeService.assertRoomAccessible(room);
+        }
         return mappingService.toRoomResponse(room);
     }
 
     /** Available rooms (not full) */
     @Transactional(readOnly = true)
     public List<RoomResponse> getAvailableRooms() {
-        return roomRepository.findAvailableRooms(StudentStatus.Active)
-                .stream()
+        List<Room> rooms = roomRepository.findAvailableRooms(StudentStatus.Active);
+        if (demoScopeService != null) {
+            rooms = rooms.stream()
+                    .filter(demoScopeService::isRoomAccessible)
+                    .toList();
+        }
+        return rooms.stream()
                 .map(mappingService::toRoomResponse)
                 .toList();
     }
@@ -83,6 +108,10 @@ public class RoomService {
     public RoomResponse createRoom(RoomCreateRequest request, String initiatedBy) {
         validateFloor(request.getFloor());
         validateCapacity(request.getCapacity());
+
+        if (demoScopeService != null) {
+            demoScopeService.assertDemoHostelAccess(request.getHostelId());
+        }
 
         if (roomRepository.existsByRoomNumberAndHostelId(request.getRoomNumber(), request.getHostelId())) {
             throw new IllegalArgumentException("Room number '" + request.getRoomNumber() + "' already exists in this hostel");
@@ -138,6 +167,9 @@ public class RoomService {
      */
     public RoomResponse updateRoom(Long id, RoomUpdateRequest request, String initiatedBy) {
         Room room = findEntityById(id);
+        if (demoScopeService != null) {
+            demoScopeService.assertRoomAccessible(room);
+        }
 
         if (request.getBlock() != null && !request.getBlock().isBlank()) {
             room.setBlock(request.getBlock().trim());
@@ -204,6 +236,9 @@ public class RoomService {
      */
     public RoomResponse updateFurniture(Long roomId, FurnitureUpdateRequest request, String initiatedBy) {
         Room room = findEntityById(roomId);
+        if (demoScopeService != null) {
+            demoScopeService.assertRoomAccessible(room);
+        }
 
         FurnitureType fType;
         try {
@@ -259,6 +294,9 @@ public class RoomService {
     @Transactional(readOnly = true)
     public List<FurnitureHistoryResponse> getFurnitureHistory(Long roomId) {
         Room room = findEntityById(roomId);
+        if (demoScopeService != null) {
+            demoScopeService.assertRoomAccessible(room);
+        }
         return roomFurnitureHistoryRepository.findByRoomOrderByRecordedAtDesc(room)
                 .stream()
                 .map(h -> new FurnitureHistoryResponse(

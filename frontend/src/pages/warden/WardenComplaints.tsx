@@ -53,8 +53,9 @@ export const WardenComplaints: React.FC<WardenComplaintsProps> = ({ initialCompl
       const updated = await apiService.updateComplaintStatus(id, status, adminNotes, priority);
       showToast(`Complaint #${updated.complaintNumber} updated to ${status}`, 'success');
       fetchComplaints();
-    } catch {
-      showToast('Could not update complaint ticket', 'error');
+    } catch (err) {
+      const msg = err instanceof Error && err.message ? err.message : 'Could not update complaint ticket';
+      showToast(msg, 'error');
     }
   };
 

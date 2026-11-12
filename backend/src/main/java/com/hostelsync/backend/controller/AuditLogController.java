@@ -6,6 +6,8 @@ import com.hostelsync.backend.entity.User;
 import com.hostelsync.backend.exception.ForbiddenException;
 import com.hostelsync.backend.repository.UserRepository;
 import com.hostelsync.backend.service.AuditService;
+import com.hostelsync.backend.service.DemoScopeService;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -31,6 +33,7 @@ public class AuditLogController {
     private final AuditService auditService;
     private final UserRepository userRepository;
     private final com.hostelsync.backend.repository.ComplaintRepository complaintRepository;
+    private DemoScopeService demoScopeService;
 
     public AuditLogController(AuditService auditService,
                               UserRepository userRepository,
@@ -38,6 +41,11 @@ public class AuditLogController {
         this.auditService = auditService;
         this.userRepository = userRepository;
         this.complaintRepository = complaintRepository;
+    }
+
+    @Autowired(required = false)
+    public void setDemoScopeService(DemoScopeService demoScopeService) {
+        this.demoScopeService = demoScopeService;
     }
 
     /**
@@ -65,6 +73,9 @@ public class AuditLogController {
             } else {
                 throw new ForbiddenException("Students may only view audit logs for their own profile or complaints");
             }
+        }
+        if (demoScopeService != null) {
+            demoScopeService.assertAuditEntityAccessible(entityType, entityId);
         }
 
         Pageable pageable = PageRequest.of(page, size, Sort.by("timestamp").descending());
@@ -114,6 +125,9 @@ public class AuditLogController {
         if (caller.getRole() == com.hostelsync.backend.entity.UserRole.STUDENT) {
             verifyStudentOwnsComplaint(caller, complaintId);
         }
+        if (demoScopeService != null) {
+            demoScopeService.assertComplaintIdAccessible(complaintId);
+        }
 
         Pageable pageable = PageRequest.of(page, size, Sort.by("timestamp").descending());
         Page<AuditLog> auditLogs = auditService.getAuditLogsForEntity("Complaint", complaintId, pageable);
@@ -151,6 +165,14 @@ public class AuditLogController {
                 }
             } else if (entityType != null && entityId != null) {
                 throw new ForbiddenException("Students may only view audit logs for their own profile or complaints");
+            }
+        }
+        if (demoScopeService != null && demoScopeService.isCurrentCallerDemo()) {
+            if (userId != null && !userId.equals(caller.getId())) {
+                throw new ForbiddenException("You may only view your own audit logs");
+            }
+            if (entityType != null && entityId != null) {
+                demoScopeService.assertAuditEntityAccessible(entityType, entityId);
             }
         }
 

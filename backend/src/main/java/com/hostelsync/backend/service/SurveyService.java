@@ -5,6 +5,7 @@ import com.hostelsync.backend.entity.*;
 import com.hostelsync.backend.exception.BadRequestException;
 import com.hostelsync.backend.exception.ResourceNotFoundException;
 import com.hostelsync.backend.repository.*;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -21,6 +22,12 @@ public class SurveyService {
     private final HostelRepository hostelRepository;
     private final StudentRepository studentRepository;
     private final NotificationService notificationService;
+    private DemoScopeService demoScopeService;
+
+    @Autowired(required = false)
+    public void setDemoScopeService(DemoScopeService demoScopeService) {
+        this.demoScopeService = demoScopeService;
+    }
 
     public SurveyService(SurveyRepository surveyRepository,
                          SurveySubmissionRepository submissionRepository,
@@ -37,6 +44,9 @@ public class SurveyService {
     public SurveyResponse createSurvey(SurveyCreateRequest request, String createdBy) {
         Hostel hostel = null;
         if (request.getTargetHostelId() != null) {
+            if (demoScopeService != null) {
+                demoScopeService.assertDemoHostelAccess(request.getTargetHostelId());
+            }
             hostel = hostelRepository.findById(request.getTargetHostelId())
                     .orElseThrow(() -> new ResourceNotFoundException("Hostel", request.getTargetHostelId()));
         }
@@ -68,6 +78,7 @@ public class SurveyService {
     public List<SurveyResponse> getAllSurveys() {
         return surveyRepository.findAllByOrderByCreatedAtDesc()
                 .stream()
+                .filter(s -> demoScopeService == null || demoScopeService.isSurveyAccessible(s))
                 .map(s -> toSurveyResponse(s, null))
                 .toList();
     }
@@ -86,6 +97,7 @@ public class SurveyService {
                 : surveyRepository.findByActiveTrueOrderByCreatedAtDesc();
 
         return surveys.stream()
+                .filter(s -> demoScopeService == null || demoScopeService.isSurveyAccessible(s))
                 .map(s -> toSurveyResponse(s, student != null ? student.getId() : null))
                 .toList();
     }
@@ -96,6 +108,11 @@ public class SurveyService {
 
         Survey survey = surveyRepository.findById(surveyId)
                 .orElseThrow(() -> new ResourceNotFoundException("Survey", surveyId));
+
+        if (demoScopeService != null) {
+            demoScopeService.assertStudentAccessible(student);
+            demoScopeService.assertSurveyAccessible(survey);
+        }
 
         if (!survey.isActive()) {
             throw new IllegalArgumentException("This survey is no longer active");
@@ -159,6 +176,10 @@ public class SurveyService {
         Survey survey = surveyRepository.findById(surveyId)
                 .orElseThrow(() -> new ResourceNotFoundException("Survey", surveyId));
 
+        if (demoScopeService != null) {
+            demoScopeService.assertSurveyAccessible(survey);
+        }
+
         List<SurveySubmission> subs = submissionRepository.findBySurveyIdOrderBySubmittedAtDesc(surveyId);
 
         SurveyAnalyticsResponse res = new SurveyAnalyticsResponse();
@@ -217,6 +238,10 @@ public class SurveyService {
     public SurveyResponse toggleSurveyActive(Long surveyId, boolean active) {
         Survey survey = surveyRepository.findById(surveyId)
                 .orElseThrow(() -> new ResourceNotFoundException("Survey", surveyId));
+
+        if (demoScopeService != null) {
+            demoScopeService.assertSurveyAccessible(survey);
+        }
         survey.setActive(active);
         return toSurveyResponse(surveyRepository.save(survey), null);
     }

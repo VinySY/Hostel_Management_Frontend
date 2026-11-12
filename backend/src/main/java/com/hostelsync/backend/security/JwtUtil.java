@@ -28,20 +28,33 @@ public class JwtUtil {
 
     /** Generate a JWT for the given email (subject) */
     public String generateToken(String email) {
+        return generateToken(email, false);
+    }
+
+    /** Generate a JWT for the given email with explicit demo claim */
+    public String generateToken(String email, boolean demo) {
         Date now = new Date();
         Date expiry = new Date(now.getTime() + expirationMs);
 
-        return Jwts.builder()
+        JwtBuilder builder = Jwts.builder()
                 .subject(email)
                 .issuedAt(now)
-                .expiration(expiry)
-                .signWith(secretKey)
-                .compact();
+                .expiration(expiry);
+        if (demo) {
+            builder.claim("demo", true);
+        }
+        return builder.signWith(secretKey).compact();
     }
 
     /** Extract the email (subject) from a valid token */
     public String extractEmail(String token) {
         return parseClaims(token).getSubject();
+    }
+
+    /** Returns true if the token explicitly carries demo=true */
+    public boolean extractDemo(String token) {
+        Boolean demo = parseClaims(token).get("demo", Boolean.class);
+        return Boolean.TRUE.equals(demo);
     }
 
     /** Returns true if the token is valid and not expired */

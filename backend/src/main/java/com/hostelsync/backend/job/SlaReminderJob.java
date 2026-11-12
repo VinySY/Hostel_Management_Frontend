@@ -4,10 +4,12 @@ import com.hostelsync.backend.entity.Complaint;
 import com.hostelsync.backend.entity.ComplaintStatus;
 import com.hostelsync.backend.entity.SlaConfiguration;
 import com.hostelsync.backend.repository.ComplaintRepository;
+import com.hostelsync.backend.service.DemoScopeService;
 import com.hostelsync.backend.service.NotificationService;
 import com.hostelsync.backend.service.SlaService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -29,6 +31,7 @@ public class SlaReminderJob {
     private final ComplaintRepository complaintRepository;
     private final SlaService slaService;
     private final NotificationService notificationService;
+    private DemoScopeService demoScopeService;
 
     public SlaReminderJob(ComplaintRepository complaintRepository,
                          SlaService slaService,
@@ -36,6 +39,11 @@ public class SlaReminderJob {
         this.complaintRepository = complaintRepository;
         this.slaService = slaService;
         this.notificationService = notificationService;
+    }
+
+    @Autowired(required = false)
+    public void setDemoScopeService(DemoScopeService demoScopeService) {
+        this.demoScopeService = demoScopeService;
     }
 
     /**
@@ -54,7 +62,8 @@ public class SlaReminderJob {
                               && c.getStatus() != ComplaintStatus.Rejected
                               && c.getStatus() != ComplaintStatus.Overdue
                               && c.getSlaDeadline() != null
-                              && c.getReminderSentAt() == null)
+                              && c.getReminderSentAt() == null
+                              && (demoScopeService == null || !demoScopeService.isComplaintInDemoHostel(c)))
                     .collect(Collectors.toList());
 
             int reminderCount = 0;

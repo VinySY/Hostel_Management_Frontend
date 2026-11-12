@@ -6,7 +6,9 @@ import com.hostelsync.backend.exception.ForbiddenException;
 import com.hostelsync.backend.exception.ResourceNotFoundException;
 import com.hostelsync.backend.repository.ComplaintAttachmentRepository;
 import com.hostelsync.backend.repository.UserRepository;
+import com.hostelsync.backend.service.DemoScopeService;
 import com.hostelsync.backend.service.FileStorageService;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.Resource;
 import org.springframework.http.CacheControl;
 import org.springframework.http.HttpHeaders;
@@ -31,6 +33,7 @@ public class FileController {
     private final FileStorageService fileStorageService;
     private final ComplaintAttachmentRepository attachmentRepository;
     private final UserRepository userRepository;
+    private DemoScopeService demoScopeService;
 
     public FileController(FileStorageService fileStorageService,
                           ComplaintAttachmentRepository attachmentRepository,
@@ -38,6 +41,11 @@ public class FileController {
         this.fileStorageService = fileStorageService;
         this.attachmentRepository = attachmentRepository;
         this.userRepository = userRepository;
+    }
+
+    @Autowired(required = false)
+    public void setDemoScopeService(DemoScopeService demoScopeService) {
+        this.demoScopeService = demoScopeService;
     }
 
     @GetMapping("/{storedFileName:.+}")
@@ -63,6 +71,9 @@ public class FileController {
                     throw new ForbiddenException("You are not authorised to access this file.");
                 }
             }
+            if (demoScopeService != null) {
+                demoScopeService.assertComplaintAccessible(attachment.getComplaint());
+            }
             if (attachment.getContentType() != null) {
                 contentType = attachment.getContentType();
             }
@@ -77,6 +88,9 @@ public class FileController {
                 if (callerAvatar == null || (!expectedAvatarPath.equals(callerAvatar) && !storedFileName.equals(callerAvatar))) {
                     throw new ForbiddenException("You are not authorised to access this file.");
                 }
+            }
+            if (demoScopeService != null) {
+                demoScopeService.assertAvatarAccessible(storedFileName);
             }
 
             String lower = storedFileName.toLowerCase();

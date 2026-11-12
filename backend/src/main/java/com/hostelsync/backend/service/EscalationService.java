@@ -8,6 +8,7 @@ import com.hostelsync.backend.repository.ComplaintEscalationRepository;
 import com.hostelsync.backend.repository.ComplaintRepository;
 import com.hostelsync.backend.repository.DgmRepository;
 import com.hostelsync.backend.repository.HostelDgmAssignmentRepository;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -26,6 +27,7 @@ public class EscalationService {
     private final NotificationService notificationService;
     private final AuditService auditService;
     private final SlaService slaService;
+    private DemoScopeService demoScopeService;
 
     public EscalationService(ComplaintEscalationRepository escalationRepository,
                             ComplaintRepository complaintRepository,
@@ -43,6 +45,11 @@ public class EscalationService {
         this.slaService = slaService;
     }
 
+    @Autowired(required = false)
+    public void setDemoScopeService(DemoScopeService demoScopeService) {
+        this.demoScopeService = demoScopeService;
+    }
+
     /**
      * Escalate a complaint to DGM (student-initiated).
      */
@@ -50,6 +57,10 @@ public class EscalationService {
                                                  String reason, String supportingDetails) {
         Complaint complaint = complaintRepository.findById(complaintId)
                 .orElseThrow(() -> new ResourceNotFoundException("Complaint", complaintId));
+
+        if (demoScopeService != null) {
+            demoScopeService.assertComplaintAccessible(complaint);
+        }
 
         // Verify the student owns this complaint
         if (!complaint.getStudent().getUser().getId().equals(studentUserId)) {
@@ -125,8 +136,17 @@ public class EscalationService {
         Complaint complaint = complaintRepository.findById(complaintId)
                 .orElseThrow(() -> new ResourceNotFoundException("Complaint", complaintId));
 
+        if (demoScopeService != null) {
+            demoScopeService.assertComplaintAccessible(complaint);
+        }
+
         Dgm dgm = dgmRepository.findByUserId(dgmUserId)
                 .orElseThrow(() -> new ResourceNotFoundException("DGM", dgmUserId));
+
+        if (demoScopeService != null) {
+            demoScopeService.assertComplaintAccessible(complaint);
+            demoScopeService.assertDgmAccessible(dgm);
+        }
 
         Student student = complaint.getStudent();
         if (student.getRoom() == null || student.getRoom().getHostel() == null) {
@@ -198,6 +218,11 @@ public class EscalationService {
 
         // Verify DGM has access to this hostel - fail closed on missing relationship
         Complaint complaint = escalation.getComplaint();
+        if (demoScopeService != null) {
+            demoScopeService.assertComplaintAccessible(complaint);
+            demoScopeService.assertDgmAccessible(dgm);
+        }
+
         Student student = complaint.getStudent();
 
         if (student.getRoom() == null) {
@@ -262,6 +287,9 @@ public class EscalationService {
      */
     @Transactional(readOnly = true)
     public List<ComplaintEscalation> getEscalationHistory(Long complaintId) {
+        if (demoScopeService != null) {
+            demoScopeService.assertComplaintIdAccessible(complaintId);
+        }
         return escalationRepository.findByComplaintIdOrderByEscalatedAtDesc(complaintId);
     }
 

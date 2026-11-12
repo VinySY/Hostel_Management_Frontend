@@ -9,9 +9,11 @@ import com.hostelsync.backend.exception.ForbiddenException;
 import com.hostelsync.backend.repository.DgmRepository;
 import com.hostelsync.backend.repository.HostelRepository;
 import com.hostelsync.backend.repository.UserRepository;
+import com.hostelsync.backend.service.DemoScopeService;
 import com.hostelsync.backend.service.DgmService;
 import com.hostelsync.backend.service.EscalationService;
 import jakarta.validation.Valid;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpStatus;
@@ -38,6 +40,7 @@ public class DgmController {
     private final HostelRepository hostelRepository;
     private final UserRepository userRepository;
     private final DgmRepository dgmRepository;
+    private DemoScopeService demoScopeService;
 
     public DgmController(DgmService dgmService, EscalationService escalationService,
                         HostelRepository hostelRepository, UserRepository userRepository,
@@ -47,6 +50,11 @@ public class DgmController {
         this.hostelRepository = hostelRepository;
         this.userRepository = userRepository;
         this.dgmRepository = dgmRepository;
+    }
+
+    @Autowired(required = false)
+    public void setDemoScopeService(DemoScopeService demoScopeService) {
+        this.demoScopeService = demoScopeService;
     }
 
     /**
@@ -170,6 +178,9 @@ public class DgmController {
 
         User caller = findUser(principal.getUsername());
         Dgm dgm = dgmService.getDgmByUserId(caller.getId());
+        if (demoScopeService != null) {
+            demoScopeService.assertComplaintIdAccessible(id);
+        }
 
         // Verify DGM has access to this complaint's hostel
         List<ComplaintEscalation> escalations = escalationService.getEscalationHistory(id);

@@ -31,6 +31,7 @@ public class ComplaintService {
 
     /** Configurable base path/URL for file download links, defaulting to relative "/api/files" */
     private final String fileBaseUrl;
+    private DemoScopeService demoScopeService;
 
     @Autowired
     public ComplaintService(ComplaintRepository complaintRepository,
@@ -61,6 +62,11 @@ public class ComplaintService {
                             int port) {
         this(complaintRepository, attachmentRepository, fileStorageService,
                 mappingService, notificationService, auditService, "/api/files");
+    }
+
+    @Autowired(required = false)
+    public void setDemoScopeService(DemoScopeService demoScopeService) {
+        this.demoScopeService = demoScopeService;
     }
 
     // ─── Create ───────────────────────────────────────────────────────────────
@@ -128,8 +134,18 @@ public class ComplaintService {
 
     @Transactional(readOnly = true)
     public List<ComplaintResponse> getAllComplaints() {
-        return complaintRepository.findAllByOrderByCreatedAtDesc()
-                .stream()
+        List<Complaint> complaints;
+        if (demoScopeService != null && demoScopeService.isCurrentCallerDemo()) {
+            complaints = complaintRepository.findByHostelId(demoScopeService.requireDemoHostelId());
+        } else {
+            complaints = complaintRepository.findAllByOrderByCreatedAtDesc();
+            if (demoScopeService != null) {
+                complaints = complaints.stream()
+                        .filter(demoScopeService::isComplaintAccessible)
+                        .toList();
+            }
+        }
+        return complaints.stream()
                 .map(c -> mappingService.toComplaintResponse(c, fileBaseUrl))
                 .toList();
     }
@@ -138,6 +154,9 @@ public class ComplaintService {
 
     @Transactional(readOnly = true)
     public List<ComplaintResponse> getComplaintsForStudent(Student student) {
+        if (demoScopeService != null) {
+            demoScopeService.assertStudentAccessible(student);
+        }
         return complaintRepository.findByStudentOrderByCreatedAtDesc(student)
                 .stream()
                 .map(c -> mappingService.toComplaintResponse(c, fileBaseUrl))
@@ -154,6 +173,9 @@ public class ComplaintService {
                 && !complaint.getStudent().getUser().getId().equals(caller.getId())) {
             throw new ForbiddenException("You are not authorised to view this complaint.");
         }
+        if (demoScopeService != null) {
+            demoScopeService.assertComplaintAccessible(complaint);
+        }
         return mappingService.toComplaintResponse(complaint, fileBaseUrl);
     }
 
@@ -161,6 +183,9 @@ public class ComplaintService {
 
     public ComplaintResponse updateStatus(Long id, ComplaintStatusUpdateRequest req) {
         Complaint complaint = findEntityById(id);
+        if (demoScopeService != null) {
+            demoScopeService.assertComplaintAccessible(complaint);
+        }
 
         ComplaintStatus newStatus = ComplaintStatus.fromDisplayName(req.getStatus());
         if (newStatus == complaint.getStatus() && req.getAdminNotes() == null) {
@@ -213,6 +238,9 @@ public class ComplaintService {
 
     public ComplaintResponse reopenComplaint(Long id, Long studentUserId, String reason) {
         Complaint complaint = findEntityById(id);
+        if (demoScopeService != null) {
+            demoScopeService.assertComplaintAccessible(complaint);
+        }
 
         // Check student ownership
         if (!complaint.getStudent().getUser().getId().equals(studentUserId)) {

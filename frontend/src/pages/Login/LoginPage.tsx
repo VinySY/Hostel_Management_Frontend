@@ -5,9 +5,12 @@ import { Button } from '../../components/common/Button';
 import { Input } from '../../components/common/Input';
 import { useToast } from '../../context/ToastContext';
 import { UserRole } from '../../types';
+import { isPublicDemoLoginEnabled } from '../../utils/demoAuth';
 
 const IS_DEMO_LOGIN_ENABLED =
   import.meta.env.DEV && import.meta.env.VITE_ENABLE_DEMO_LOGIN !== 'false';
+
+const IS_PUBLIC_DEMO_ENABLED = isPublicDemoLoginEnabled(import.meta.env.VITE_ENABLE_PUBLIC_DEMO);
 
 /**
  * Development-only demo accounts. Stripped from production bundles by Vite dead-code elimination.
@@ -25,7 +28,7 @@ const getDemoCredentials = (role: UserRole): { email: string; password: string }
 };
 
 export const LoginPage: React.FC = () => {
-  const { login } = useAuth();
+  const { login, loginDemo } = useAuth();
   const { showToast } = useToast();
 
   const initialDemo = getDemoCredentials('STUDENT');
@@ -33,6 +36,7 @@ export const LoginPage: React.FC = () => {
   const [password, setPassword] = useState(initialDemo.password);
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [demoLoadingRole, setDemoLoadingRole] = useState<UserRole | null>(null);
   const [selectedRole, setSelectedRole] = useState<UserRole>('STUDENT');
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -65,6 +69,23 @@ export const LoginPage: React.FC = () => {
     setSelectedRole(role);
     setEmail(creds.email);
     setPassword(creds.password);
+  };
+
+  const handlePublicDemoLogin = async (role: UserRole) => {
+    if (!IS_PUBLIC_DEMO_ENABLED || demoLoadingRole) return;
+    setDemoLoadingRole(role);
+    try {
+      await loginDemo(role);
+      showToast(`Signed in to Read-Only ${role} Demo Showcase`, 'success');
+    } catch (error) {
+      const message =
+        error instanceof Error && error.message
+          ? error.message
+          : 'Demo login is currently unavailable.';
+      showToast(message, 'error');
+    } finally {
+      setDemoLoadingRole(null);
+    }
   };
 
   return (
@@ -115,6 +136,52 @@ export const LoginPage: React.FC = () => {
               Enter your credentials to access your portal
             </p>
           </div>
+
+          {/* Public Passwordless Demo Quick-Login */}
+          {IS_PUBLIC_DEMO_ENABLED && (
+            <div className="mb-6 p-4 bg-amber-50/80 border border-amber-200 rounded-xl">
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="text-xs font-semibold text-amber-950 flex items-center">
+                  <ShieldCheck className="w-3.5 h-3.5 mr-1.5 text-amber-600" /> Instant Live Demo Access
+                </span>
+                <span className="text-[10px] font-medium text-amber-800 bg-amber-200/70 px-2 py-0.5 rounded">
+                  Read-Only Showcase
+                </span>
+              </div>
+              <p className="text-[11px] text-amber-800 mb-3">
+                Explore the showcase hostel instantly without a password. Writes are disabled and real records remain isolated.
+              </p>
+              <div className="grid grid-cols-3 gap-2">
+                <button
+                  type="button"
+                  disabled={demoLoadingRole !== null || isLoading}
+                  onClick={() => handlePublicDemoLogin('STUDENT')}
+                  className="py-2 px-2 rounded-lg text-xs font-medium border border-amber-200 bg-white text-slate-800 hover:bg-amber-100/70 disabled:opacity-50 flex items-center justify-center space-x-1.5 transition-colors cursor-pointer"
+                >
+                  <UserCheck className="w-3.5 h-3.5 text-blue-600" />
+                  <span>{demoLoadingRole === 'STUDENT' ? 'Opening...' : 'Student'}</span>
+                </button>
+                <button
+                  type="button"
+                  disabled={demoLoadingRole !== null || isLoading}
+                  onClick={() => handlePublicDemoLogin('WARDEN')}
+                  className="py-2 px-2 rounded-lg text-xs font-medium border border-amber-200 bg-white text-slate-800 hover:bg-amber-100/70 disabled:opacity-50 flex items-center justify-center space-x-1.5 transition-colors cursor-pointer"
+                >
+                  <ShieldCheck className="w-3.5 h-3.5 text-indigo-600" />
+                  <span>{demoLoadingRole === 'WARDEN' ? 'Opening...' : 'Warden'}</span>
+                </button>
+                <button
+                  type="button"
+                  disabled={demoLoadingRole !== null || isLoading}
+                  onClick={() => handlePublicDemoLogin('DGM')}
+                  className="py-2 px-2 rounded-lg text-xs font-medium border border-amber-200 bg-white text-slate-800 hover:bg-amber-100/70 disabled:opacity-50 flex items-center justify-center space-x-1.5 transition-colors cursor-pointer"
+                >
+                  <Building2 className="w-3.5 h-3.5 text-purple-600" />
+                  <span>{demoLoadingRole === 'DGM' ? 'Opening...' : 'DGM'}</span>
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* Quick Demo Selector (Development Only) */}
           {IS_DEMO_LOGIN_ENABLED && (

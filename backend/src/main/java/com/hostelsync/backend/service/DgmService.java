@@ -5,6 +5,7 @@ import com.hostelsync.backend.entity.*;
 import com.hostelsync.backend.exception.BadRequestException;
 import com.hostelsync.backend.exception.ResourceNotFoundException;
 import com.hostelsync.backend.repository.*;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -22,6 +23,7 @@ public class DgmService {
     private final HostelRepository hostelRepository;
     private final ComplaintRepository complaintRepository;
     private final ComplaintEscalationRepository escalationRepository;
+    private DemoScopeService demoScopeService;
 
     public DgmService(DgmRepository dgmRepository,
                      HostelDgmAssignmentRepository hostelDgmAssignmentRepository,
@@ -33,6 +35,11 @@ public class DgmService {
         this.hostelRepository = hostelRepository;
         this.complaintRepository = complaintRepository;
         this.escalationRepository = escalationRepository;
+    }
+
+    @Autowired(required = false)
+    public void setDemoScopeService(DemoScopeService demoScopeService) {
+        this.demoScopeService = demoScopeService;
     }
 
     /**
@@ -63,6 +70,15 @@ public class DgmService {
         Hostel hostel = hostelRepository.findById(hostelId)
                 .orElseThrow(() -> new ResourceNotFoundException("Hostel", hostelId));
 
+        if (demoScopeService != null) {
+            demoScopeService.assertSameEnvironmentPair(
+                    demoScopeService.isDgmInDemoEnvironment(dgm),
+                    demoScopeService.isDemoHostel(hostel)
+            );
+            demoScopeService.assertDgmAccessible(dgm);
+            demoScopeService.assertDemoHostelAccess(hostel.getId());
+        }
+
         // Check if assignment already exists
         if (hostelDgmAssignmentRepository.findByHostelIdAndDgmId(hostelId, dgmId).isPresent()) {
             throw new BadRequestException("DGM is already assigned to this hostel");
@@ -89,7 +105,11 @@ public class DgmService {
      */
     @Transactional(readOnly = true)
     public List<Dgm> getAllDgms() {
-        return dgmRepository.findAll();
+        List<Dgm> list = dgmRepository.findAll();
+        if (demoScopeService != null) {
+            return list.stream().filter(demoScopeService::isDgmAccessible).toList();
+        }
+        return list;
     }
 
     /**
@@ -100,6 +120,7 @@ public class DgmService {
         List<HostelDgmAssignment> assignments = hostelDgmAssignmentRepository.findByDgmId(dgmId);
         return assignments.stream()
                 .map(HostelDgmAssignment::getHostel)
+                .filter(h -> demoScopeService == null || demoScopeService.isHostelAccessible(h.getId()))
                 .collect(Collectors.toList());
     }
 
@@ -108,9 +129,13 @@ public class DgmService {
      */
     @Transactional(readOnly = true)
     public List<Dgm> getDgmsForHostel(Long hostelId) {
+        if (demoScopeService != null) {
+            demoScopeService.assertDemoHostelAccess(hostelId);
+        }
         List<HostelDgmAssignment> assignments = hostelDgmAssignmentRepository.findByHostelId(hostelId);
         return assignments.stream()
                 .map(HostelDgmAssignment::getDgm)
+                .filter(d -> demoScopeService == null || demoScopeService.isDgmAccessible(d))
                 .collect(Collectors.toList());
     }
 

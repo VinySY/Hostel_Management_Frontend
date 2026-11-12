@@ -35,6 +35,7 @@ import {
 } from '../mock/data';
 import { fetchProtectedFileBlob } from '../utils/fileAccess';
 import { submitCreateWardenRequest } from '../utils/wardenForm';
+import { submitDemoLoginRequest, throwIfApiError } from '../utils/demoAuth';
 
 /**
  * Dynamically resolves the Spring Boot REST API base URL:
@@ -183,6 +184,17 @@ export const apiService = {
     return { token, user };
   },
 
+  async demoLogin(roleChoice: UserRole): Promise<AuthResponse> {
+    if (USE_REAL_BACKEND) {
+      return submitDemoLoginRequest(fetch, API_BASE_URL, roleChoice);
+    }
+    await simulateDelay(250);
+    const baseUser =
+      roleChoice === 'DGM' ? mockUsers.dgm : roleChoice === 'WARDEN' ? mockUsers.warden : mockUsers.student;
+    const user: User = { ...baseUser, demo: true };
+    return { token: `mock-demo-jwt-token-for-${user.id}`, user };
+  },
+
   async getCurrentUser(): Promise<User> {
     if (USE_REAL_BACKEND) {
       const response = await fetch(`${API_BASE_URL}/auth/me`, { headers: getAuthHeaders() });
@@ -223,7 +235,7 @@ export const apiService = {
         },
         body: formData,
       });
-      if (!res.ok) throw new Error('Failed to upload student photo');
+      await throwIfApiError(res, 'Failed to upload student photo');
       return res.json();
     }
     await simulateDelay(300);
@@ -243,6 +255,7 @@ export const apiService = {
         headers: getAuthHeaders(),
         body: JSON.stringify(updates),
       });
+      await throwIfApiError(res, 'Failed to update student profile');
       return res.json();
     }
     await simulateDelay(300);
@@ -315,6 +328,7 @@ export const apiService = {
         headers: getAuthHeaders(),
         body: JSON.stringify(updates),
       });
+      await throwIfApiError(res, 'Failed to update student');
       return res.json();
     }
     await simulateDelay(300);
@@ -330,6 +344,7 @@ export const apiService = {
         method: 'DELETE',
         headers: getAuthHeaders(),
       });
+      await throwIfApiError(res, 'Failed to delete student');
       return res.ok;
     }
     await simulateDelay(300);
@@ -395,6 +410,7 @@ export const apiService = {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
         body: formData,
       });
+      await throwIfApiError(res, 'Failed to submit complaint');
       return res.json();
     }
 
@@ -451,6 +467,7 @@ export const apiService = {
         headers: getAuthHeaders(),
         body: JSON.stringify({ status, adminNotes, priority }),
       });
+      await throwIfApiError(res, 'Failed to update complaint status');
       return res.json();
     }
 
@@ -484,10 +501,11 @@ export const apiService = {
 
   async markNotificationAsRead(id: string): Promise<void> {
     if (USE_REAL_BACKEND) {
-      await fetch(`${API_BASE_URL}/notifications/${id}/read`, {
+      const res = await fetch(`${API_BASE_URL}/notifications/${id}/read`, {
         method: 'POST',
         headers: getAuthHeaders(),
       });
+      await throwIfApiError(res, 'Failed to mark notification as read');
       return;
     }
     localNotifications = localNotifications.map((n) =>
@@ -557,7 +575,7 @@ export const apiService = {
         headers: getAuthHeaders(),
         body: JSON.stringify({ reason }),
       });
-      if (!res.ok) throw new Error('Failed to reopen complaint');
+      await throwIfApiError(res, 'Failed to reopen complaint');
       return res.json();
     }
     await simulateDelay(300);
@@ -579,7 +597,7 @@ export const apiService = {
         headers: getAuthHeaders(),
         body: JSON.stringify({ wardenId, notes }),
       });
-      if (!res.ok) throw new Error('Failed to assign complaint');
+      await throwIfApiError(res, 'Failed to assign complaint');
       return res.json();
     }
     await simulateDelay(300);
@@ -632,7 +650,7 @@ export const apiService = {
         headers: getAuthHeaders(),
         body: JSON.stringify(data),
       });
-      if (!res.ok) throw new Error('Failed to update SLA configuration');
+      await throwIfApiError(res, 'Failed to update SLA configuration');
       return res.json();
     }
     await simulateDelay(300);
@@ -651,7 +669,7 @@ export const apiService = {
         method: 'POST',
         headers: getAuthHeaders(),
       });
-      if (!res.ok) throw new Error('Failed to mark all notifications as read');
+      await throwIfApiError(res, 'Failed to mark all notifications as read');
       return res.json();
     }
     await simulateDelay(200);
@@ -709,7 +727,7 @@ export const apiService = {
         headers: getAuthHeaders(),
         body: JSON.stringify(data),
       });
-      if (!res.ok) throw new Error('Failed to handle escalation');
+      await throwIfApiError(res, 'Failed to handle escalation');
       return res.json();
     }
     await simulateDelay(300);
@@ -991,7 +1009,7 @@ export const apiService = {
         headers: getAuthHeaders(),
         body: JSON.stringify({ active }),
       });
-      if (!res.ok) throw new Error('Failed to toggle hostel active state');
+      await throwIfApiError(res, 'Failed to toggle hostel active state');
       return res.json();
     }
     await simulateDelay(250);
@@ -1079,7 +1097,7 @@ export const apiService = {
         headers: getAuthHeaders(),
         body: JSON.stringify({ active }),
       });
-      if (!res.ok) throw new Error('Failed to toggle warden active status');
+      await throwIfApiError(res, 'Failed to toggle warden active status');
       return res.json();
     }
     await simulateDelay(200);
@@ -1150,7 +1168,7 @@ export const apiService = {
         headers: getAuthHeaders(),
         body: JSON.stringify({ active }),
       });
-      if (!res.ok) throw new Error('Failed to update notice status');
+      await throwIfApiError(res, 'Failed to update notice status');
       return res.json();
     }
     await simulateDelay(200);
@@ -1262,7 +1280,7 @@ export const apiService = {
         headers: getAuthHeaders(),
         body: JSON.stringify({ active }),
       });
-      if (!res.ok) throw new Error('Failed to toggle survey active status');
+      await throwIfApiError(res, 'Failed to toggle survey active status');
       return res.json();
     }
     await simulateDelay(200);

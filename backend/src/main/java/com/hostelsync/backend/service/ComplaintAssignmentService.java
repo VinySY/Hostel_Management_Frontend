@@ -6,6 +6,7 @@ import com.hostelsync.backend.exception.ResourceNotFoundException;
 import com.hostelsync.backend.repository.ComplaintAssignmentRepository;
 import com.hostelsync.backend.repository.ComplaintRepository;
 import com.hostelsync.backend.repository.WardenRepository;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -22,6 +23,7 @@ public class ComplaintAssignmentService {
     private final NotificationService notificationService;
     private final AuditService auditService;
     private final SlaService slaService;
+    private DemoScopeService demoScopeService;
 
     public ComplaintAssignmentService(ComplaintAssignmentRepository assignmentRepository,
                                      ComplaintRepository complaintRepository,
@@ -37,6 +39,11 @@ public class ComplaintAssignmentService {
         this.slaService = slaService;
     }
 
+    @Autowired(required = false)
+    public void setDemoScopeService(DemoScopeService demoScopeService) {
+        this.demoScopeService = demoScopeService;
+    }
+
     /**
      * Assign a complaint to a warden.
      */
@@ -46,6 +53,15 @@ public class ComplaintAssignmentService {
 
         Warden warden = wardenRepository.findById(wardenId)
                 .orElseThrow(() -> new ResourceNotFoundException("Warden", wardenId));
+
+        if (demoScopeService != null) {
+            demoScopeService.assertSameEnvironmentPair(
+                    demoScopeService.isComplaintInDemoHostel(complaint),
+                    demoScopeService.isWardenInDemoHostel(warden)
+            );
+            demoScopeService.assertComplaintAccessible(complaint);
+            demoScopeService.assertWardenAccessible(warden);
+        }
 
         // Check if complaint is already assigned to this warden
         if (complaint.getAssignedWarden() != null
@@ -118,6 +134,9 @@ public class ComplaintAssignmentService {
      */
     @Transactional(readOnly = true)
     public List<ComplaintAssignment> getAssignmentHistory(Long complaintId) {
+        if (demoScopeService != null) {
+            demoScopeService.assertComplaintIdAccessible(complaintId);
+        }
         return assignmentRepository.findByComplaintIdOrderByAssignedAtDesc(complaintId);
     }
 
@@ -126,6 +145,12 @@ public class ComplaintAssignmentService {
      */
     @Transactional(readOnly = true)
     public List<ComplaintAssignment> getAssignmentsForWarden(Long wardenId) {
+        if (demoScopeService != null) {
+            Warden warden = wardenRepository.findById(wardenId).orElse(null);
+            if (warden != null) {
+                demoScopeService.assertWardenAccessible(warden);
+            }
+        }
         return assignmentRepository.findByAssignedWardenIdOrderByAssignedAtDesc(wardenId);
     }
 
@@ -134,6 +159,9 @@ public class ComplaintAssignmentService {
      */
     @Transactional(readOnly = true)
     public ComplaintAssignment getCurrentAssignment(Long complaintId) {
+        if (demoScopeService != null) {
+            demoScopeService.assertComplaintIdAccessible(complaintId);
+        }
         return assignmentRepository.findFirstByComplaintIdOrderByAssignedAtDesc(complaintId)
                 .orElse(null);
     }

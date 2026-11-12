@@ -12,9 +12,11 @@ import com.hostelsync.backend.entity.UserRole;
 import com.hostelsync.backend.exception.BadRequestException;
 import com.hostelsync.backend.repository.UserRepository;
 import com.hostelsync.backend.service.ComplaintService;
+import com.hostelsync.backend.service.DemoScopeService;
 import com.hostelsync.backend.service.StudentService;
 import com.hostelsync.backend.service.ComplaintAssignmentService;
 import jakarta.validation.Valid;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -44,6 +46,7 @@ public class ComplaintController {
     private final UserRepository userRepository;
     private final ObjectMapper objectMapper;
     private final ComplaintAssignmentService complaintAssignmentService;
+    private DemoScopeService demoScopeService;
 
     public ComplaintController(ComplaintService complaintService,
                                StudentService studentService,
@@ -55,6 +58,11 @@ public class ComplaintController {
         this.userRepository = userRepository;
         this.objectMapper = objectMapper;
         this.complaintAssignmentService = complaintAssignmentService;
+    }
+
+    @Autowired(required = false)
+    public void setDemoScopeService(DemoScopeService demoScopeService) {
+        this.demoScopeService = demoScopeService;
     }
 
     // ─── Create complaint (student only) ─────────────────────────────────────
@@ -194,7 +202,10 @@ public class ComplaintController {
             @PathVariable Long id) {
 
         // Verify complaint exists (returns 404 if not found)
-        complaintService.findEntityById(id);
+        com.hostelsync.backend.entity.Complaint complaint = complaintService.findEntityById(id);
+        if (demoScopeService != null) {
+            demoScopeService.assertComplaintAccessible(complaint);
+        }
 
         List<com.hostelsync.backend.entity.ComplaintAssignment> assignments =
             complaintAssignmentService.getAssignmentHistory(id);

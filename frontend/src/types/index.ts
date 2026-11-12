@@ -7,6 +7,7 @@ export interface User {
   role: UserRole;
   avatar?: string;
   studentId?: string;
+  demo?: boolean;
 }
 
 export type ComplaintType =

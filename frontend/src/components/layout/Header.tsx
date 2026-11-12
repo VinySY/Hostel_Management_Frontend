@@ -26,9 +26,14 @@ export const Header: React.FC<HeaderProps> = ({
 
   const unreadCount = notifications.filter((n) => !n.read).length;
 
-  const markAllAsRead = () => {
-    notifications.forEach((n) => apiService.markNotificationAsRead(n.id));
-    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+  const markAllAsRead = async () => {
+    if (user?.demo) return;
+    try {
+      await apiService.markAllNotificationsAsRead();
+      setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+    } catch {
+      // Ignore transient notification failure
+    }
   };
 
   return (

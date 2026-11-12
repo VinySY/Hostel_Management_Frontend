@@ -23,18 +23,25 @@ public class LoginResponse {
         private String id;       // String to match frontend ("usr-101" style or numeric as string)
         private String name;
         private String email;
-        private String role;     // "STUDENT" | "WARDEN"
+        private String role;     // "STUDENT" | "WARDEN" | "DGM"
         private String studentId; // only populated for students
         private String avatar;
+        private boolean demo;
 
         public UserDto(String id, String name, String email, String role,
                        String studentId, String avatar) {
+            this(id, name, email, role, studentId, avatar, false);
+        }
+
+        public UserDto(String id, String name, String email, String role,
+                       String studentId, String avatar, boolean demo) {
             this.id = id;
             this.name = name;
             this.email = email;
             this.role = role;
             this.studentId = studentId;
             this.avatar = avatar;
+            this.demo = demo;
         }
 
         public String getId() { return id; }
@@ -43,5 +50,6 @@ public class LoginResponse {
         public String getRole() { return role; }
         public String getStudentId() { return studentId; }
         public String getAvatar() { return avatar; }
+        public boolean isDemo() { return demo; }
     }
 }

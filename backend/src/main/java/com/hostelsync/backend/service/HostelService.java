@@ -10,6 +10,7 @@ import com.hostelsync.backend.entity.UserRole;
 import com.hostelsync.backend.exception.BadRequestException;
 import com.hostelsync.backend.exception.ResourceNotFoundException;
 import com.hostelsync.backend.repository.*;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -30,6 +31,7 @@ public class HostelService {
     private final DgmRepository dgmRepository;
     private final HostelDgmAssignmentRepository hostelDgmAssignmentRepository;
     private final MappingService mappingService;
+    private DemoScopeService demoScopeService;
 
     public HostelService(HostelRepository hostelRepository,
                          RoomRepository roomRepository,
@@ -51,14 +53,27 @@ public class HostelService {
         this.mappingService = mappingService;
     }
 
+    @Autowired(required = false)
+    public void setDemoScopeService(DemoScopeService demoScopeService) {
+        this.demoScopeService = demoScopeService;
+    }
+
     @Transactional(readOnly = true)
     public List<HostelResponse> getAllHostels(boolean includeInactive) {
         List<Hostel> list = includeInactive ? hostelRepository.findAll() : hostelRepository.findByActiveTrue();
+        if (demoScopeService != null) {
+            list = list.stream()
+                    .filter(h -> demoScopeService.isHostelAccessible(h.getId()))
+                    .toList();
+        }
         return list.stream().map(this::toHostelResponse).toList();
     }
 
     @Transactional(readOnly = true)
     public HostelResponse getHostelById(Long id) {
+        if (demoScopeService != null) {
+            demoScopeService.assertDemoHostelAccess(id);
+        }
         Hostel hostel = hostelRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Hostel", id));
         return toHostelResponse(hostel);
@@ -66,6 +81,9 @@ public class HostelService {
 
     @Transactional(readOnly = true)
     public HostelDetailResponse getHostelDetails(Long id) {
+        if (demoScopeService != null) {
+            demoScopeService.assertDemoHostelAccess(id);
+        }
         Hostel hostel = hostelRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Hostel", id));
 
@@ -110,6 +128,9 @@ public class HostelService {
     }
 
     public HostelResponse createHostel(HostelCreateRequest request, String creatorEmail) {
+        if (demoScopeService != null) {
+            demoScopeService.assertNotDemoHostelName(request.getName());
+        }
         if (hostelRepository.existsByName(request.getName().trim())) {
             throw new IllegalArgumentException("Hostel with name '" + request.getName() + "' already exists");
         }
@@ -151,6 +172,12 @@ public class HostelService {
     }
 
     public HostelResponse updateHostel(Long id, HostelUpdateRequest request) {
+        if (demoScopeService != null) {
+            demoScopeService.assertDemoHostelAccess(id);
+            if (request.getName() != null && !request.getName().isBlank()) {
+                demoScopeService.assertNotDemoHostelName(request.getName());
+            }
+        }
         Hostel hostel = hostelRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Hostel", id));
 
@@ -169,6 +196,9 @@ public class HostelService {
     }
 
     public HostelResponse toggleHostelActive(Long id, boolean active) {
+        if (demoScopeService != null) {
+            demoScopeService.assertDemoHostelAccess(id);
+        }
         Hostel hostel = hostelRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Hostel", id));
         hostel.setActive(active);

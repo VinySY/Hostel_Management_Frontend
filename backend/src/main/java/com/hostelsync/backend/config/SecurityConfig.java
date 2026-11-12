@@ -1,5 +1,6 @@
 package com.hostelsync.backend.config;
 
+import com.hostelsync.backend.security.DemoReadOnlyFilter;
 import com.hostelsync.backend.security.JwtAuthenticationFilter;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -34,12 +35,14 @@ import java.util.List;
 public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthFilter;
+    private final DemoReadOnlyFilter demoReadOnlyFilter;
 
     @Value("${app.cors.allowed-origins:http://localhost:*,http://127.0.0.1:*,http://10.*:*,http://192.168.*:*,http://172.*:*,http://localhost:3000,http://localhost:3001,http://127.0.0.1:3000,http://127.0.0.1:3001,http://10.200.50.197:3000,http://10.200.50.197:3001,http://10.63.156.120:3000,http://10.63.156.120:3001}")
     private String allowedOrigins;
 
-    public SecurityConfig(JwtAuthenticationFilter jwtAuthFilter) {
+    public SecurityConfig(JwtAuthenticationFilter jwtAuthFilter, DemoReadOnlyFilter demoReadOnlyFilter) {
         this.jwtAuthFilter = jwtAuthFilter;
+        this.demoReadOnlyFilter = demoReadOnlyFilter;
     }
 
     @Bean
@@ -66,6 +69,7 @@ public class SecurityConfig {
 
                 // Public endpoints
                 .requestMatchers(HttpMethod.POST, "/api/auth/login").permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/auth/demo-login").permitAll()
                 .requestMatchers(HttpMethod.GET,  "/api/auth/ping").permitAll()
                 .requestMatchers(HttpMethod.GET,  "/api/health").permitAll()
 
@@ -105,7 +109,8 @@ public class SecurityConfig {
                 // Everything else requires authentication
                 .anyRequest().authenticated()
             )
-            .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
+            .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
+            .addFilterAfter(demoReadOnlyFilter, JwtAuthenticationFilter.class);
 
         return http.build();
     }

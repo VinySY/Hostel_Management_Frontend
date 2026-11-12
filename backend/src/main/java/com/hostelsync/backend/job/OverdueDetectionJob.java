@@ -5,10 +5,12 @@ import com.hostelsync.backend.entity.ComplaintStatus;
 import com.hostelsync.backend.entity.ComplaintTimeline;
 import com.hostelsync.backend.repository.ComplaintRepository;
 import com.hostelsync.backend.service.AuditService;
+import com.hostelsync.backend.service.DemoScopeService;
 import com.hostelsync.backend.service.NotificationService;
 import com.hostelsync.backend.service.SlaService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -31,6 +33,7 @@ public class OverdueDetectionJob {
     private final SlaService slaService;
     private final NotificationService notificationService;
     private final AuditService auditService;
+    private DemoScopeService demoScopeService;
 
     public OverdueDetectionJob(ComplaintRepository complaintRepository,
                                SlaService slaService,
@@ -40,6 +43,11 @@ public class OverdueDetectionJob {
         this.slaService = slaService;
         this.notificationService = notificationService;
         this.auditService = auditService;
+    }
+
+    @Autowired(required = false)
+    public void setDemoScopeService(DemoScopeService demoScopeService) {
+        this.demoScopeService = demoScopeService;
     }
 
     /**
@@ -57,7 +65,8 @@ public class OverdueDetectionJob {
                     .filter(c -> c.getStatus() != ComplaintStatus.Resolved
                               && c.getStatus() != ComplaintStatus.Rejected
                               && c.getStatus() != ComplaintStatus.Overdue
-                              && c.getSlaDeadline() != null)
+                              && c.getSlaDeadline() != null
+                              && (demoScopeService == null || !demoScopeService.isComplaintInDemoHostel(c)))
                     .collect(Collectors.toList());
 
             int overdueCount = 0;

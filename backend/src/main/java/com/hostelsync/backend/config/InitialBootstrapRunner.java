@@ -3,6 +3,7 @@ package com.hostelsync.backend.config;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 
 /**
@@ -10,6 +11,7 @@ import org.springframework.stereotype.Component;
  * app.bootstrap.enabled=true (ENABLE_INITIAL_BOOTSTRAP=true).
  */
 @Component
+@Order(1)
 @ConditionalOnProperty(name = "app.bootstrap.enabled", havingValue = "true")
 public class InitialBootstrapRunner implements ApplicationRunner {
 

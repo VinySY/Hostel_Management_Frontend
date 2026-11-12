@@ -66,8 +66,9 @@ export const StudentList: React.FC = () => {
       showToast(`Student ${studentToDelete.name} removed from roster`, 'success');
       setStudentToDelete(null);
       fetchStudents();
-    } catch {
-      showToast('Could not delete student record', 'error');
+    } catch (err) {
+      const msg = err instanceof Error && err.message ? err.message : 'Could not delete student record';
+      showToast(msg, 'error');
     } finally {
       setIsDeleting(false);
     }

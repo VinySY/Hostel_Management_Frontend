@@ -6,8 +6,10 @@ interface AuthContextType {
   user: User | null;
   role: UserRole | null;
   isAuthenticated: boolean;
+  isDemo: boolean;
   isLoading: boolean;
   login: (roleChoice: UserRole, credentials?: { email?: string; password?: string }) => Promise<void>;
+  loginDemo: (roleChoice: UserRole) => Promise<void>;
   logout: () => void;
   switchRoleDemo: (role: UserRole) => Promise<void>;
 }
@@ -58,6 +60,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const loginDemo = async (roleChoice: UserRole) => {
+    setIsLoading(true);
+    try {
+      const response = await apiService.demoLogin(roleChoice);
+      localStorage.setItem('hostelhub_token', response.token);
+      localStorage.setItem('hostelhub_user', JSON.stringify(response.user));
+      setUser(response.user);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const logout = () => {
     localStorage.removeItem('hostelhub_token');
     localStorage.removeItem('hostelhub_user');
@@ -79,8 +93,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         user,
         role: user?.role ?? null,
         isAuthenticated: !!user,
+        isDemo: Boolean(user?.demo),
         isLoading,
         login,
+        loginDemo,
         logout,
         switchRoleDemo,
       }}

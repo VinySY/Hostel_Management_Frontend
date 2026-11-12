@@ -6,9 +6,11 @@ import com.hostelsync.backend.entity.*;
 import com.hostelsync.backend.exception.ForbiddenException;
 import com.hostelsync.backend.exception.ResourceNotFoundException;
 import com.hostelsync.backend.repository.UserRepository;
+import com.hostelsync.backend.service.DemoScopeService;
 import com.hostelsync.backend.service.EscalationService;
 import com.hostelsync.backend.service.StudentService;
 import jakarta.validation.Valid;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -33,6 +35,7 @@ public class EscalationController {
     private final EscalationService escalationService;
     private final StudentService studentService;
     private final UserRepository userRepository;
+    private DemoScopeService demoScopeService;
 
     public EscalationController(EscalationService escalationService,
                                StudentService studentService,
@@ -40,6 +43,11 @@ public class EscalationController {
         this.escalationService = escalationService;
         this.studentService = studentService;
         this.userRepository = userRepository;
+    }
+
+    @Autowired(required = false)
+    public void setDemoScopeService(DemoScopeService demoScopeService) {
+        this.demoScopeService = demoScopeService;
     }
 
     /**
@@ -76,6 +84,9 @@ public class EscalationController {
             @AuthenticationPrincipal UserDetails principal) {
 
         User caller = findUser(principal.getUsername());
+        if (demoScopeService != null) {
+            demoScopeService.assertComplaintIdAccessible(complaintId);
+        }
 
         // Get escalations
         List<ComplaintEscalation> escalations = escalationService.getEscalationHistory(complaintId);
@@ -87,6 +98,9 @@ public class EscalationController {
         // Authorization: Student can see their own, Warden/DGM can see if they have access
         // The service layer handles authorization for individual actions, but for list we check basics
         Complaint complaint = escalations.get(0).getComplaint();
+        if (demoScopeService != null) {
+            demoScopeService.assertComplaintAccessible(complaint);
+        }
 
         if (caller.getRole() == UserRole.STUDENT) {
             // Student can only see their own complaint's escalations
@@ -122,6 +136,11 @@ public class EscalationController {
         }
 
         List<ComplaintEscalation> escalations = escalationService.getPendingEscalations();
+        if (demoScopeService != null) {
+            escalations = escalations.stream()
+                    .filter(e -> demoScopeService.isComplaintAccessible(e.getComplaint()))
+                    .collect(Collectors.toList());
+        }
         List<EscalationResponse> response = escalations.stream()
                 .map(this::toEscalationResponse)
                 .collect(Collectors.toList());
@@ -145,6 +164,9 @@ public class EscalationController {
 
         // Authorization
         Complaint complaint = escalation.getComplaint();
+        if (demoScopeService != null) {
+            demoScopeService.assertComplaintAccessible(complaint);
+        }
         if (caller.getRole() == UserRole.STUDENT) {
             if (!complaint.getStudent().getUser().getId().equals(caller.getId())) {
                 throw new ForbiddenException("You may only view escalations for your own complaints");

@@ -9,6 +9,7 @@ import com.hostelsync.backend.repository.FeedbackTaskRepository;
 import com.hostelsync.backend.repository.HostelRepository;
 import com.hostelsync.backend.repository.SurveyRepository;
 import com.hostelsync.backend.repository.WardenRepository;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -24,6 +25,7 @@ public class FeedbackTaskService {
     private final WardenRepository wardenRepository;
     private final SurveyRepository surveyRepository;
     private final NotificationService notificationService;
+    private DemoScopeService demoScopeService;
 
     public FeedbackTaskService(FeedbackTaskRepository feedbackTaskRepository,
                                HostelRepository hostelRepository,
@@ -37,12 +39,22 @@ public class FeedbackTaskService {
         this.notificationService = notificationService;
     }
 
+    @Autowired(required = false)
+    public void setDemoScopeService(DemoScopeService demoScopeService) {
+        this.demoScopeService = demoScopeService;
+    }
+
     public FeedbackTaskResponse createTask(FeedbackTaskCreateRequest request, String createdBy) {
         Hostel hostel = hostelRepository.findById(request.getHostelId())
                 .orElseThrow(() -> new ResourceNotFoundException("Hostel", request.getHostelId()));
 
         Warden warden = wardenRepository.findById(request.getWardenId())
                 .orElseThrow(() -> new ResourceNotFoundException("Warden", request.getWardenId()));
+
+        if (demoScopeService != null) {
+            demoScopeService.assertDemoHostelAccess(request.getHostelId());
+            demoScopeService.assertWardenAccessible(warden);
+        }
 
         Survey survey = null;
         if (request.getSurveyId() != null) {
@@ -81,15 +93,35 @@ public class FeedbackTaskService {
 
         return feedbackTaskRepository.findByWardenIdOrderByCreatedAtDesc(warden.getId())
                 .stream()
+                .filter(t -> demoScopeService == null || demoScopeService.isFeedbackTaskAccessible(t))
                 .map(this::toResponse)
                 .toList();
     }
 
     @Transactional(readOnly = true)
     public List<FeedbackTaskResponse> getAllTasks(Long hostelId) {
+        if (demoScopeService != null && demoScopeService.isCurrentCallerDemo()) {
+            Long demoHostelId = demoScopeService.requireDemoHostelId();
+            if (hostelId != null) {
+                demoScopeService.assertDemoHostelAccess(hostelId);
+            }
+            return feedbackTaskRepository.findByHostelIdOrderByCreatedAtDesc(demoHostelId)
+                    .stream()
+                    .map(this::toResponse)
+                    .toList();
+        }
+
+        if (demoScopeService != null && hostelId != null) {
+            demoScopeService.assertDemoHostelAccess(hostelId);
+        }
+
         List<FeedbackTask> list = (hostelId != null)
                 ? feedbackTaskRepository.findByHostelIdOrderByCreatedAtDesc(hostelId)
                 : feedbackTaskRepository.findAllByOrderByCreatedAtDesc();
+
+        if (demoScopeService != null) {
+            list = list.stream().filter(demoScopeService::isFeedbackTaskAccessible).toList();
+        }
 
         return list.stream().map(this::toResponse).toList();
     }
@@ -97,6 +129,10 @@ public class FeedbackTaskService {
     public FeedbackTaskResponse updateTaskStatus(Long id, FeedbackTaskUpdateRequest request, String updatedBy) {
         FeedbackTask task = feedbackTaskRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("FeedbackTask", id));
+
+        if (demoScopeService != null) {
+            demoScopeService.assertFeedbackTaskAccessible(task);
+        }
 
         FeedbackTaskStatus newStatus;
         try {

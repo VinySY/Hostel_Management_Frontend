@@ -16,7 +16,7 @@ interface ComplaintNewProps {
 }
 
 export const ComplaintNew: React.FC<ComplaintNewProps> = ({ onBack, onSuccess }) => {
-  const { user } = useAuth();
+  const { user, isDemo } = useAuth();
   const { showToast } = useToast();
 
   const [type, setType] = useState<ComplaintType>('Mess');
@@ -60,8 +60,9 @@ export const ComplaintNew: React.FC<ComplaintNewProps> = ({ onBack, onSuccess })
 
       showToast(`Complaint #${created.complaintNumber} lodged successfully!`, 'success');
       onSuccess(created.id);
-    } catch {
-      showToast('Failed to submit complaint. Please retry.', 'error');
+    } catch (err) {
+      const msg = err instanceof Error && err.message ? err.message : 'Failed to submit complaint. Please retry.';
+      showToast(msg, 'error');
     } finally {
       setIsSubmitting(false);
     }
@@ -150,18 +151,26 @@ export const ComplaintNew: React.FC<ComplaintNewProps> = ({ onBack, onSuccess })
           </p>
         </Card>
 
-        <div className="flex items-center justify-end space-x-3">
-          <Button type="button" variant="outline" onClick={onBack} disabled={isSubmitting}>
-            Cancel
-          </Button>
-          <Button
-            type="submit"
-            variant="primary"
-            icon={<Send className="w-4 h-4" />}
-            isLoading={isSubmitting}
-          >
-            Submit Complaint
-          </Button>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-end gap-3">
+          {isDemo && (
+            <span className="text-xs text-amber-800 bg-amber-50 border border-amber-200 px-3 py-1.5 rounded-lg">
+              Submitting new complaints is disabled in Read-Only Demo Mode.
+            </span>
+          )}
+          <div className="flex items-center justify-end space-x-3">
+            <Button type="button" variant="outline" onClick={onBack} disabled={isSubmitting}>
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              variant="primary"
+              icon={<Send className="w-4 h-4" />}
+              isLoading={isSubmitting}
+              disabled={isDemo}
+            >
+              Submit Complaint
+            </Button>
+          </div>
         </div>
       </form>
     </div>

@@ -8,6 +8,7 @@ import com.hostelsync.backend.repository.HostelRepository;
 import com.hostelsync.backend.repository.NoticeRepository;
 import com.hostelsync.backend.repository.StudentRepository;
 import com.hostelsync.backend.repository.UserRepository;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -23,6 +24,7 @@ public class NoticeService {
     private final StudentRepository studentRepository;
     private final UserRepository userRepository;
     private final NotificationService notificationService;
+    private DemoScopeService demoScopeService;
 
     public NoticeService(NoticeRepository noticeRepository,
                          HostelRepository hostelRepository,
@@ -36,12 +38,20 @@ public class NoticeService {
         this.notificationService = notificationService;
     }
 
+    @Autowired(required = false)
+    public void setDemoScopeService(DemoScopeService demoScopeService) {
+        this.demoScopeService = demoScopeService;
+    }
+
     public NoticeResponse createNotice(NoticeCreateRequest request, String authorEmail, String authorRole) {
         User author = userRepository.findByEmail(authorEmail).orElse(null);
         String authorName = author != null ? author.getName() : "Administrator";
 
         Hostel hostel = null;
         if (request.getHostelId() != null) {
+            if (demoScopeService != null) {
+                demoScopeService.assertDemoHostelAccess(request.getHostelId());
+            }
             hostel = hostelRepository.findById(request.getHostelId())
                     .orElseThrow(() -> new ResourceNotFoundException("Hostel", request.getHostelId()));
         }
@@ -103,13 +113,17 @@ public class NoticeService {
             list = noticeRepository.findAllActiveNotices(now);
         }
 
-        return list.stream().map(this::toResponse).toList();
+        return list.stream()
+                .filter(n -> demoScopeService == null || demoScopeService.isNoticeAccessible(n))
+                .map(this::toResponse)
+                .toList();
     }
 
     @Transactional(readOnly = true)
     public List<NoticeResponse> getAllNotices() {
         return noticeRepository.findAllByOrderByCreatedAtDesc()
                 .stream()
+                .filter(n -> demoScopeService == null || demoScopeService.isNoticeAccessible(n))
                 .map(this::toResponse)
                 .toList();
     }
@@ -117,6 +131,9 @@ public class NoticeService {
     public NoticeResponse toggleNoticeActive(Long id, boolean active) {
         Notice notice = noticeRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Notice", id));
+        if (demoScopeService != null) {
+            demoScopeService.assertNoticeAccessible(notice);
+        }
         notice.setActive(active);
         return toResponse(noticeRepository.save(notice));
     }

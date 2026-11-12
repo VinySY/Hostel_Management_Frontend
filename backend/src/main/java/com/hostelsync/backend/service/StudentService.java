@@ -10,6 +10,7 @@ import com.hostelsync.backend.exception.ForbiddenException;
 import com.hostelsync.backend.exception.ResourceNotFoundException;
 import com.hostelsync.backend.repository.StudentRepository;
 import com.hostelsync.backend.repository.UserRepository;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -28,6 +29,7 @@ public class StudentService {
     private final PasswordEncoder passwordEncoder;
     private final AuditService auditService;
     private final FileStorageService fileStorageService;
+    private DemoScopeService demoScopeService;
 
     public StudentService(StudentRepository studentRepository,
                           UserRepository userRepository,
@@ -45,12 +47,22 @@ public class StudentService {
         this.fileStorageService = fileStorageService;
     }
 
+    @Autowired(required = false)
+    public void setDemoScopeService(DemoScopeService demoScopeService) {
+        this.demoScopeService = demoScopeService;
+    }
+
     // ─── List all students ────────────────────────────────────────────────────
 
     @Transactional(readOnly = true)
     public List<StudentResponse> getAllStudents() {
-        return studentRepository.findAllByOrderByCreatedAtDesc()
-                .stream()
+        List<Student> students = studentRepository.findAllByOrderByCreatedAtDesc();
+        if (demoScopeService != null) {
+            students = students.stream()
+                    .filter(demoScopeService::isStudentAccessible)
+                    .toList();
+        }
+        return students.stream()
                 .map(mappingService::toStudentResponse)
                 .toList();
     }
@@ -72,6 +84,9 @@ public class StudentService {
     @Transactional(readOnly = true)
     public StudentResponse getStudentById(Long id) {
         Student student = findEntityById(id);
+        if (demoScopeService != null) {
+            demoScopeService.assertStudentAccessible(student);
+        }
         return mappingService.toStudentResponse(student);
     }
 
@@ -81,12 +96,18 @@ public class StudentService {
     public StudentResponse getStudentByStudentId(String studentId) {
         Student student = studentRepository.findByStudentId(studentId)
                 .orElseThrow(() -> new ResourceNotFoundException("Student not found with studentId: " + studentId));
+        if (demoScopeService != null) {
+            demoScopeService.assertStudentAccessible(student);
+        }
         return mappingService.toStudentResponse(student);
     }
 
     // ─── Create (warden registers a new student) ──────────────────────────────
 
     public StudentResponse createStudent(StudentCreateRequest req) {
+        if (demoScopeService != null) {
+            demoScopeService.assertNotDemoEmail(req.getEmail());
+        }
         if (req.getPassword() == null || req.getPassword().isBlank()) {
             throw new BadRequestException("Password is required");
         }
@@ -128,6 +149,9 @@ public class StudentService {
         // Room assignment
         if (req.getRoomId() != null) {
             Room room = roomService.findEntityById(req.getRoomId());
+            if (demoScopeService != null) {
+                demoScopeService.assertRoomAccessible(room);
+            }
             if (!room.isActive()) {
                 throw new BadRequestException("Room is not active and cannot accept students.");
             }
@@ -148,6 +172,9 @@ public class StudentService {
     public StudentResponse updateStudent(Long id, StudentUpdateRequest req,
                                          boolean callerIsWarden, String callerEmail) {
         Student student = findEntityById(id);
+        if (demoScopeService != null) {
+            demoScopeService.assertStudentAccessible(student);
+        }
         User caller = userRepository.findByEmail(callerEmail).orElse(null);
 
         // Section 8: Students cannot edit official profile fields — warden only
@@ -180,6 +207,9 @@ public class StudentService {
 
         if (req.getRoomId() != null) {
             Room room = roomService.findEntityById(req.getRoomId());
+            if (demoScopeService != null) {
+                demoScopeService.assertRoomAccessible(room);
+            }
             if (!room.isActive()) {
                 throw new BadRequestException("Room is not active.");
             }
@@ -205,6 +235,9 @@ public class StudentService {
 
     public StudentResponse uploadStudentPhoto(Long id, MultipartFile file, User caller) {
         Student student = findEntityById(id);
+        if (demoScopeService != null) {
+            demoScopeService.assertStudentAccessible(student);
+        }
         String previousAvatar = student.getUser().getAvatarUrl();
 
         String storedFileName = fileStorageService.store(file);
@@ -224,6 +257,9 @@ public class StudentService {
 
     public void deleteStudent(Long id) {
         Student student = findEntityById(id);
+        if (demoScopeService != null) {
+            demoScopeService.assertStudentAccessible(student);
+        }
         studentRepository.delete(student);
         // The associated User is NOT auto-deleted — that would be done separately
         // if needed (e.g. deactivate the login account instead).
