@@ -77,7 +77,7 @@ export const LoginPage: React.FC = () => {
               <Layers className="w-6 h-6 text-white" />
             </div>
             <div>
-              <span className="text-2xl font-bold tracking-tight text-white">HostelHub</span>
+              <span className="text-2xl font-bold tracking-tight text-white">HostelSync</span>
               <p className="text-xs text-blue-200">Smart Hostel Management System</p>
             </div>
           </div>
@@ -110,7 +110,7 @@ export const LoginPage: React.FC = () => {
       <div className="w-full md:w-1/2 flex items-center justify-center p-6 sm:p-10">
         <div className="w-full max-w-md">
           <div className="mb-6">
-            <h3 className="text-2xl font-bold text-slate-900">Sign in to HostelHub</h3>
+            <h3 className="text-2xl font-bold text-slate-900">Sign in to HostelSync</h3>
             <p className="text-sm text-slate-500 mt-1">
               Enter your credentials to access your portal
             </p>
@@ -222,7 +222,7 @@ export const LoginPage: React.FC = () => {
             </div>
 
             <Button type="submit" variant="primary" className="w-full mt-2" isLoading={isLoading}>
-              Sign In to HostelHub
+              Sign In to HostelSync
             </Button>
           </form>
 

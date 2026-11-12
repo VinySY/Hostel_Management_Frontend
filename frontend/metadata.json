@@ -1,5 +1,5 @@
 {
-  "name": "HostelHub",
+  "name": "HostelSync",
   "description": "Smart Hostel Management System for university students and wardens to manage rooms, complaints, resident directory, and campus maintenance.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]

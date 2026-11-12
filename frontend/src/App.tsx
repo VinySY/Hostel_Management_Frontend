@@ -91,7 +91,7 @@ const MainLayout: React.FC = () => {
       case 'dgm-surveys':             return 'Quality Surveys & Analytics';
       case 'dgm-profile':             return 'DGM Profile';
 
-      default: return 'HostelHub';
+      default: return 'HostelSync';
     }
   };
 
