@@ -20,8 +20,11 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 
 /**
  * Spring Security configuration:
@@ -34,10 +37,12 @@ import java.util.List;
 @EnableMethodSecurity
 public class SecurityConfig {
 
+    public static final String PRODUCTION_FRONTEND_ORIGIN = "https://hostelsync-henna.vercel.app";
+
     private final JwtAuthenticationFilter jwtAuthFilter;
     private final DemoReadOnlyFilter demoReadOnlyFilter;
 
-    @Value("${app.cors.allowed-origins:http://localhost:*,http://127.0.0.1:*,http://10.*:*,http://192.168.*:*,http://172.*:*,http://localhost:3000,http://localhost:3001,http://127.0.0.1:3000,http://127.0.0.1:3001,http://10.200.50.197:3000,http://10.200.50.197:3001,http://10.63.156.120:3000,http://10.63.156.120:3001}")
+    @Value("${app.cors.allowed-origins:https://hostelsync-henna.vercel.app,http://localhost:*,http://127.0.0.1:*,http://10.*:*,http://192.168.*:*,http://172.*:*,http://localhost:3000,http://localhost:3001,http://127.0.0.1:3000,http://127.0.0.1:3001,http://10.200.50.197:3000,http://10.200.50.197:3001,http://10.63.156.120:3000,http://10.63.156.120:3001}")
     private String allowedOrigins;
 
     public SecurityConfig(JwtAuthenticationFilter jwtAuthFilter, DemoReadOnlyFilter demoReadOnlyFilter) {
@@ -119,13 +124,20 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
 
-        // Parse comma-separated origins/patterns from config (supports patterns with credentials)
-        List<String> origins = Arrays.stream(allowedOrigins.split(","))
-                .map(String::trim)
-                .filter(s -> !s.isEmpty())
-                .toList();
+        Set<String> originSet = new LinkedHashSet<>();
+        // Ensure the production Vercel frontend origin is always allowed
+        originSet.add(PRODUCTION_FRONTEND_ORIGIN);
 
-        config.setAllowedOriginPatterns(origins);
+        // Include any environment-configured origins, stripping any trailing slashes
+        if (allowedOrigins != null && !allowedOrigins.isBlank()) {
+            Arrays.stream(allowedOrigins.split(","))
+                    .map(String::trim)
+                    .map(s -> s.replaceAll("/+$", ""))
+                    .filter(s -> !s.isEmpty())
+                    .forEach(originSet::add);
+        }
+
+        config.setAllowedOriginPatterns(new ArrayList<>(originSet));
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of(
                 "Authorization",
